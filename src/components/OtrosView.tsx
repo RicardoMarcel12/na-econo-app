@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { TransaccionOtro, EstadoTransaccionOtro } from '../types/models';
 import { exportOtrosCSV, parseCSV, downloadFile } from '../utils/csvEngine';
 import { Search, Plus, Download, Upload, Trash2, Edit2, CheckCircle2, AlertCircle, X, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { TableSortHeader, cycleSort, sortRows, SortDirection } from './TableSortHeader';
 
 interface OtrosViewProps {
   otros: TransaccionOtro[];
@@ -21,6 +22,16 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState<string>('ALL');
   const [filterTipo, setFilterTipo] = useState<'ALL' | 'ingreso' | 'egreso'>('ALL');
+
+  // Table Sorting state (3-state toggle: default ID, asc, desc)
+  const [sortKey, setSortKey] = useState<string>('default');
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  const handleSort = (key: string) => {
+    const next = cycleSort(sortKey, key, sortDirection);
+    setSortKey(next.key);
+    setSortDirection(next.direction);
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<TransaccionOtro | null>(null);
@@ -53,6 +64,10 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
       return matchesSearch && matchesEstado && matchesTipo;
     });
   }, [otros, searchTerm, filterEstado, filterTipo]);
+
+  const sortedOtros = useMemo(() => {
+    return sortRows(filteredOtros, sortKey, sortDirection, 'ID_Transaccion');
+  }, [filteredOtros, sortKey, sortDirection]);
 
   const handleOpenAdd = () => {
     setEditingItem(null);
@@ -309,25 +324,69 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
               <tr>
-                <th className="py-2.5 px-3 w-14">ID</th>
-                <th className="py-2.5 px-3">Fecha</th>
-                <th className="py-2.5 px-3">Concepto</th>
-                <th className="py-2.5 px-3 text-right">Monto</th>
-                <th className="py-2.5 px-3">Contacto / Proveedor</th>
-                <th className="py-2.5 px-3">Estado</th>
-                <th className="py-2.5 px-3">Acción Pendiente</th>
+                <TableSortHeader
+                  columnKey="ID_Transaccion"
+                  label="ID"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  className="w-16 font-mono"
+                />
+                <TableSortHeader
+                  columnKey="Fecha"
+                  label="Fecha"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Concepto"
+                  label="Concepto"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Monto"
+                  label="Monto"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  align="right"
+                />
+                <TableSortHeader
+                  columnKey="Contacto"
+                  label="Contacto / Proveedor"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Estado"
+                  label="Estado"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Accion_Pendiente"
+                  label="Acción Pendiente"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
                 <th className="py-2.5 px-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredOtros.length === 0 ? (
+              {sortedOtros.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-slate-400">
                     No se encontraron transacciones registradas.
                   </td>
                 </tr>
               ) : (
-                filteredOtros.map((item) => {
+                sortedOtros.map((item) => {
                   const isPositive = item.Monto >= 0;
                   return (
                     <tr key={item.ID_Transaccion} className="hover:bg-slate-50/80 transition-colors">
@@ -387,7 +446,13 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
           </table>
         </div>
         <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>{filteredOtros.length} registros listados</span>
+          <div className="flex items-center gap-2">
+            <span>{sortedOtros.length} registros listados</span>
+            <span className="text-slate-300">·</span>
+            <span className="text-slate-400">
+              Orden: {sortDirection === null || sortKey === 'default' ? 'Por defecto (ID)' : `${sortKey} (${sortDirection === 'asc' ? 'ascendente' : 'descendente'})`}
+            </span>
+          </div>
           <span className="font-mono tabular-nums font-semibold text-slate-800">
             Balance neto en vista: <span className={balanceTotal >= 0 ? 'text-emerald-700' : 'text-rose-700'}>${balanceTotal.toFixed(2)}</span>
           </span>

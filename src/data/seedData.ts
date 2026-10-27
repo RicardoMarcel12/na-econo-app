@@ -1,4 +1,47 @@
-import { Miembro, CuotaMembresia, MaterialClase, TransaccionOtro, ReporteMora } from '../types/models';
+import {
+  Miembro,
+  CuotaMembresia,
+  MaterialClase,
+  TransaccionOtro,
+  ReporteMora,
+  DiaSemana,
+  HorarioClase,
+  Instructor,
+  GrupoClase
+} from '../types/models';
+
+export const DIAS_SEMANA_DEFAULT: DiaSemana[] = [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado'
+];
+
+export const INITIAL_HORARIOS: HorarioClase[] = [
+  { ID_Horario: 1, Dia: 'Martes', Hora_Inicio: '18:30', Hora_Fin: '20:30' },
+  { ID_Horario: 2, Dia: 'Jueves', Hora_Inicio: '18:30', Hora_Fin: '20:30' },
+  { ID_Horario: 3, Dia: 'Miércoles', Hora_Inicio: '18:00', Hora_Fin: '20:00' },
+  { ID_Horario: 4, Dia: 'Sábado', Hora_Inicio: '09:00', Hora_Fin: '12:00' },
+  { ID_Horario: 5, Dia: 'Viernes', Hora_Inicio: '18:30', Hora_Fin: '20:30' },
+  { ID_Horario: 6, Dia: 'Lunes', Hora_Inicio: '19:00', Hora_Fin: '21:00' }
+];
+
+export const INITIAL_INSTRUCTORES: Instructor[] = [
+  { ID_Instructor: 1, Nombre_Completo: 'Prof. Roberto Valencia', Estatus: '01-J.F.' },
+  { ID_Instructor: 2, Nombre_Completo: 'Lic. Claudia Solórzano', Estatus: '02-F.F.V.V.' },
+  { ID_Instructor: 3, Nombre_Completo: 'Ing. Javier Arévalo', Estatus: '03-Miembro' },
+  { ID_Instructor: 4, Nombre_Completo: 'Dra. Elena Monroy', Estatus: '02-F.F.V.V.' }
+];
+
+export const INITIAL_GRUPOS: GrupoClase[] = [
+  { ID_Grupo: 1, Numero_Grupo: 'G-01 Introducción a la Filosofía', ID_Horario: 1, ID_Instructor: 1 },
+  { ID_Grupo: 2, Numero_Grupo: 'G-02 Filosofía de Oriente y Occidente', ID_Horario: 3, ID_Instructor: 2 },
+  { ID_Grupo: 3, Numero_Grupo: 'G-03 Ética y Moral Clásica', ID_Horario: 4, ID_Instructor: 3 },
+  { ID_Grupo: 4, Numero_Grupo: 'G-04 Psicología Holística y Simbolismo', ID_Horario: 5, ID_Instructor: 4 },
+  { ID_Grupo: 5, Numero_Grupo: 'G-05 Aspirantes de Primer Ingreso', ID_Horario: 6, ID_Instructor: 1 }
+];
 
 export const GRUPOS_HORARIOS_DEFAULT = [
   'Introducción a la Filosofía - Mar/Jue 6:30 PM',
@@ -34,6 +77,17 @@ export const METODOS_PAGO_DEFAULT = [
   'Depósito Bancario'
 ];
 
+export const CATALOGO_ESTATUS_DEFAULT: string[] = [
+  '01-J.F.',
+  '02-F.F.V.V.',
+  '03-Miembro',
+  '04-Probacionista',
+  '05-Inscrito',
+  '06-Ficha llena',
+  '98-Sospecha de retiro',
+  '99-Retirado'
+];
+
 export const INITIAL_MIEMBROS: Miembro[] = [
   {
     ID_Miembro: 1,
@@ -46,6 +100,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Prof. Roberto Valencia',
     Concepto_Pago: 'Cuota Mensual de Membresía',
     Cuota: 25.00,
+    Estatus: '03-Miembro',
     Fecha_Ingreso: '2025-03-15'
   },
   {
@@ -59,6 +114,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Lic. Claudia Solórzano',
     Concepto_Pago: 'Cuota Mensual de Membresía',
     Cuota: 30.00,
+    Estatus: '01-J.F.',
     Fecha_Ingreso: '2024-06-10'
   },
   {
@@ -72,6 +128,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Ing. Javier Arévalo',
     Concepto_Pago: 'Cuota de Aspirante',
     Cuota: 25.00,
+    Estatus: '05-Inscrito',
     Fecha_Ingreso: '2025-10-01'
   },
   {
@@ -85,6 +142,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Dra. Elena Monroy',
     Concepto_Pago: 'Cuota de Miembro Activo',
     Cuota: 35.00,
+    Estatus: '02-F.F.V.V.',
     Fecha_Ingreso: '2023-11-20'
   },
   {
@@ -98,6 +156,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Prof. Roberto Valencia',
     Concepto_Pago: 'Cuota de Aspirante',
     Cuota: 25.00,
+    Estatus: '06-Ficha llena',
     Fecha_Ingreso: '2026-01-15'
   },
   {
@@ -111,6 +170,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Prof. Roberto Valencia',
     Concepto_Pago: 'Cuota Mensual de Membresía',
     Cuota: 25.00,
+    Estatus: '03-Miembro',
     Fecha_Ingreso: '2025-05-12'
   },
   {
@@ -124,6 +184,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Lic. Claudia Solórzano',
     Concepto_Pago: 'Cuota Mensual de Membresía',
     Cuota: 30.00,
+    Estatus: '04-Probacionista',
     Fecha_Ingreso: '2024-09-01'
   },
   {
@@ -137,6 +198,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Ing. Javier Arévalo',
     Concepto_Pago: 'Cuota Mensual de Membresía',
     Cuota: 25.00,
+    Estatus: '03-Miembro',
     Fecha_Ingreso: '2025-02-18'
   },
   {
@@ -150,6 +212,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Prof. Roberto Valencia',
     Concepto_Pago: 'Cuota Mensual de Membresía',
     Cuota: 25.00,
+    Estatus: '98-Sospecha de retiro',
     Fecha_Ingreso: '2024-11-05'
   },
   {
@@ -163,6 +226,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Lic. Claudia Solórzano',
     Concepto_Pago: 'Cuota Mensual de Membresía',
     Cuota: 30.00,
+    Estatus: '03-Miembro',
     Fecha_Ingreso: '2025-04-20'
   },
   {
@@ -176,6 +240,7 @@ export const INITIAL_MIEMBROS: Miembro[] = [
     Instructores: 'Ing. Javier Arévalo',
     Concepto_Pago: 'Cuota Mensual de Membresía',
     Cuota: 30.00,
+    Estatus: '99-Retirado',
     Fecha_Ingreso: '2024-08-14'
   }
 ];

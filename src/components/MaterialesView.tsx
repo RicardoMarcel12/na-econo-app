@@ -3,6 +3,7 @@ import { MaterialClase, EstadoPagoMaterial, EstadoEntregaMaterial } from '../typ
 import { exportMaterialesCSV, parseCSV, downloadFile } from '../utils/csvEngine';
 import { validateEntityPayload } from '../contracts/jsonContracts';
 import { Search, Plus, Download, Upload, Trash2, Edit2, CheckCircle2, AlertCircle, X, BookOpen } from 'lucide-react';
+import { TableSortHeader, cycleSort, sortRows, SortDirection } from './TableSortHeader';
 
 interface MaterialesViewProps {
   materiales: MaterialClase[];
@@ -22,6 +23,16 @@ export const MaterialesView: React.FC<MaterialesViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPago, setFilterPago] = useState<string>('ALL');
   const [filterEntrega, setFilterEntrega] = useState<string>('ALL');
+
+  // Table Sorting state (3-state toggle: default ID, asc, desc)
+  const [sortKey, setSortKey] = useState<string>('default');
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  const handleSort = (key: string) => {
+    const next = cycleSort(sortKey, key, sortDirection);
+    setSortKey(next.key);
+    setSortDirection(next.direction);
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MaterialClase | null>(null);
@@ -49,6 +60,10 @@ export const MaterialesView: React.FC<MaterialesViewProps> = ({
       return matchesSearch && matchesPago && matchesEntrega;
     });
   }, [materiales, searchTerm, filterPago, filterEntrega]);
+
+  const sortedMateriales = useMemo(() => {
+    return sortRows(filteredMateriales, sortKey, sortDirection, 'ID_Material_Log');
+  }, [filteredMateriales, sortKey, sortDirection]);
 
   const handleOpenAdd = () => {
     setEditingItem(null);
@@ -311,25 +326,69 @@ export const MaterialesView: React.FC<MaterialesViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
               <tr>
-                <th className="py-2.5 px-3 w-14">ID</th>
-                <th className="py-2.5 px-3">Miembro / Aspirante</th>
-                <th className="py-2.5 px-3">Materia / Artículo</th>
-                <th className="py-2.5 px-3 text-right">Monto</th>
-                <th className="py-2.5 px-3">Fecha Solicitud</th>
-                <th className="py-2.5 px-3">Estado Pago</th>
-                <th className="py-2.5 px-3">Estado Entrega</th>
+                <TableSortHeader
+                  columnKey="ID_Material_Log"
+                  label="ID"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  className="w-16 font-mono"
+                />
+                <TableSortHeader
+                  columnKey="Miembro_Aspirante"
+                  label="Miembro / Aspirante"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Materia_Articulo"
+                  label="Materia / Artículo"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Monto"
+                  label="Monto"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  align="right"
+                />
+                <TableSortHeader
+                  columnKey="Fecha_Solicitud"
+                  label="Fecha Solicitud"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Estado_Pago"
+                  label="Estado Pago"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Estado_Entrega"
+                  label="Estado Entrega"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
                 <th className="py-2.5 px-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredMateriales.length === 0 ? (
+              {sortedMateriales.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-slate-400">
                     No se encontraron materiales registrados.
                   </td>
                 </tr>
               ) : (
-                filteredMateriales.map((item) => (
+                sortedMateriales.map((item) => (
                   <tr key={item.ID_Material_Log} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-2.5 px-3 font-mono text-slate-400 tabular-nums">
                       #{item.ID_Material_Log}
@@ -400,9 +459,15 @@ export const MaterialesView: React.FC<MaterialesViewProps> = ({
           </table>
         </div>
         <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>{filteredMateriales.length} artículos listados</span>
+          <div className="flex items-center gap-2">
+            <span>{sortedMateriales.length} artículos listados</span>
+            <span className="text-slate-300">·</span>
+            <span className="text-slate-400">
+              Orden: {sortDirection === null || sortKey === 'default' ? 'Por defecto (ID)' : `${sortKey} (${sortDirection === 'asc' ? 'ascendente' : 'descendente'})`}
+            </span>
+          </div>
           <span className="font-mono tabular-nums font-semibold text-slate-800">
-            Total en vista: ${filteredMateriales.reduce((acc, m) => acc + m.Monto, 0).toFixed(2)}
+            Total en vista: ${sortedMateriales.reduce((acc, m) => acc + m.Monto, 0).toFixed(2)}
           </span>
         </div>
       </div>

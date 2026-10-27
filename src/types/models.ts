@@ -13,7 +13,8 @@ export type CondicionMiembro = 'Miembro' | 'Aspirante' | 'Miembro Activo' | 'Hon
 export interface Miembro {
   ID_Miembro: number;
   Miembro_Aspirante: string; // Nombre completo
-  Condicion: CondicionMiembro; // Condición
+  Estatus: string; // Estatus institucional (ej. 01-J.F., 02-F.F.V.V., 03-Miembro, etc.)
+  Condicion?: CondicionMiembro; // Campo anterior sustituido por Estatus (opcional por compatibilidad)
   DUI: string; // Formato estándar El Salvador: 00000000-0
   Celular: string; // Teléfono / WhatsApp
   Correo: string; // Correo electrónico
@@ -74,7 +75,29 @@ export interface ReporteMora {
   Estado_Gestion: EstadoGestionMora;
 }
 
-export type ActiveTab = 'dashboard' | 'miembros' | 'cuotas' | 'materiales' | 'otros' | 'mora' | 'contratos' | 'diccionario';
+export type DiaSemana = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado';
+
+export interface HorarioClase {
+  ID_Horario: number;
+  Dia: DiaSemana;
+  Hora_Inicio: string; // HH:mm
+  Hora_Fin: string;    // HH:mm
+}
+
+export interface Instructor {
+  ID_Instructor: number;
+  Nombre_Completo: string;
+  Estatus: string; // Relación con Catálogo de Estatus (ej. '01-J.F.', '02-F.F.V.V.')
+}
+
+export interface GrupoClase {
+  ID_Grupo: number;
+  Numero_Grupo: string; // ej. "Grupo 1 - Filosofía" o "G-01"
+  ID_Horario: number;   // FK relación a HORARIO
+  ID_Instructor: number; // FK relación a INSTRUCTOR
+}
+
+export type ActiveTab = 'dashboard' | 'catalogos' | 'miembros' | 'cuotas' | 'materiales' | 'otros' | 'mora' | 'contratos' | 'diccionario';
 
 export interface DatabaseState {
   miembros: Miembro[];
@@ -82,4 +105,8 @@ export interface DatabaseState {
   materiales: MaterialClase[];
   otros: TransaccionOtro[];
   mora: ReporteMora[];
+  catalogoEstatus?: string[];
+  horarios?: HorarioClase[];
+  instructores?: Instructor[];
+  grupos?: GrupoClase[];
 }

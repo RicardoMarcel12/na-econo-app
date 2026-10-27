@@ -23,6 +23,8 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { TableSortHeader, cycleSort, sortRows, SortDirection } from './TableSortHeader';
+import { isEstatusActivo, getEstatusBadgeStyle } from './MiembrosView';
 
 // Sysdate local al lugar de registro (garantiza la fecha del sistema en timezone local)
 const getLocalSysdate = (): string => {
@@ -76,6 +78,16 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
   const [filterMes, setFilterMes] = useState('ALL');
   const [filterMetodo, setFilterMetodo] = useState('ALL');
   const [onlyMoraFilter, setOnlyMoraFilter] = useState(false);
+
+  // Table Sorting state (3-state toggle: default ID, asc, desc)
+  const [sortKey, setSortKey] = useState<string>('default');
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  const handleSort = (key: string) => {
+    const next = cycleSort(sortKey, key, sortDirection);
+    setSortKey(next.key);
+    setSortDirection(next.direction);
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(isAddModalOpenInitially);
@@ -136,12 +148,16 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
     });
   }, [cuotas, searchTerm, filterGrupo, filterMes, filterMetodo, onlyMoraFilter, moraMap]);
 
+  const sortedCuotas = useMemo(() => {
+    return sortRows(filteredCuotas, sortKey, sortDirection, 'ID_Registro');
+  }, [filteredCuotas, sortKey, sortDirection]);
+
   // Estado para desplegar el listado de miembros activos pagados / pendientes al pie de la tabla
   const [showActiveMembersBreakdown, setShowActiveMembersBreakdown] = useState(false);
 
-  // Miembros en estado activo (registrados en catálogo con cuota asignada, excluyendo honorarios)
+  // Miembros en estado activo: según la regla oficial, los estatus que comienzan con 9 son inactivos (los que no comienzan con 9 son activos)
   const activeMembers = useMemo(() => {
-    return miembros.filter((m) => m.Condicion !== 'Honorario');
+    return miembros.filter((m) => isEstatusActivo(m.Estatus));
   }, [miembros]);
 
   // Miembros activos que ya tienen registrado al menos un pago en el mes filtrado
@@ -501,27 +517,83 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
               <tr>
-                <th className="py-2.5 px-3 w-14">ID</th>
-                <th className="py-2.5 px-3">Miembro / Aspirante</th>
-                <th className="py-2.5 px-3">DUI</th>
-                <th className="py-2.5 px-3">Grupo Horario</th>
-                <th className="py-2.5 px-3">Mes</th>
-                <th className="py-2.5 px-3 text-right">Monto</th>
-                <th className="py-2.5 px-3">Fecha Pago</th>
-                <th className="py-2.5 px-3">Método</th>
-                <th className="py-2.5 px-3">Referencia</th>
+                <TableSortHeader
+                  columnKey="ID_Registro"
+                  label="ID"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  className="w-16 font-mono"
+                />
+                <TableSortHeader
+                  columnKey="Miembro_Aspirante"
+                  label="Miembro / Aspirante"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="DUI"
+                  label="DUI"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Grupo_Horario"
+                  label="Grupo Horario"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Mes_Pagado"
+                  label="Mes"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Monto_Cuota"
+                  label="Monto"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                  align="right"
+                />
+                <TableSortHeader
+                  columnKey="Fecha_Pago"
+                  label="Fecha Pago"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Metodo_Pago"
+                  label="Método"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <TableSortHeader
+                  columnKey="Referencia"
+                  label="Referencia"
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
                 <th className="py-2.5 px-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredCuotas.length === 0 ? (
+              {sortedCuotas.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-8 text-center text-slate-400">
                     No se encontraron pagos con los filtros seleccionados.
                   </td>
                 </tr>
               ) : (
-                filteredCuotas.map((item: CuotaMembresia) => {
+                sortedCuotas.map((item: CuotaMembresia) => {
                   const memberMora = moraMap.get(item.Miembro_Aspirante.trim().toLowerCase());
                   return (
                     <tr key={item.ID_Registro} className="hover:bg-slate-50/80 transition-colors">
@@ -586,9 +658,15 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
           </table>
         </div>
         <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500">
-          <span>{filteredCuotas.length} registros visualizados en tabla</span>
+          <div className="flex items-center gap-2">
+            <span>{sortedCuotas.length} registros visualizados en tabla</span>
+            <span className="text-slate-300">·</span>
+            <span className="text-slate-400">
+              Orden: {sortDirection === null || sortKey === 'default' ? 'Por defecto (ID)' : `${sortKey} (${sortDirection === 'asc' ? 'ascendente' : 'descendente'})`}
+            </span>
+          </div>
           <span className="font-mono tabular-nums font-semibold text-slate-800">
-            Total recaudado en vista: ${filteredCuotas.reduce((acc: number, c: CuotaMembresia) => acc + c.Monto_Cuota, 0).toFixed(2)}
+            Total recaudado en vista: ${sortedCuotas.reduce((acc: number, c: CuotaMembresia) => acc + c.Monto_Cuota, 0).toFixed(2)}
           </span>
         </div>
 
@@ -681,7 +759,7 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
                           <div key={m.ID_Miembro} className="flex items-center justify-between py-1.5 px-2 rounded bg-emerald-50/60 text-[11px]">
                             <div>
                               <span className="font-semibold text-slate-800 block">{m.Miembro_Aspirante}</span>
-                              <span className="text-[10px] text-slate-400">{m.Condicion} · {m.Grupo_Horario}</span>
+                              <span className="text-[10px] text-slate-400">{m.Estatus} · {m.Grupo_Horario}</span>
                             </div>
                             <span className="font-mono font-bold text-emerald-700">${m.Cuota.toFixed(2)}</span>
                           </div>
@@ -709,7 +787,7 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
                           <div key={m.ID_Miembro} className="flex items-center justify-between py-1.5 px-2 rounded bg-amber-50/60 text-[11px]">
                             <div>
                               <span className="font-semibold text-slate-800 block">{m.Miembro_Aspirante}</span>
-                              <span className="text-[10px] text-slate-400">{m.Condicion} · Tel: {m.Celular}</span>
+                              <span className="text-[10px] text-slate-400">{m.Estatus} · Tel: {m.Celular}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="font-mono font-bold text-slate-700">${m.Cuota.toFixed(2)}</span>
@@ -811,7 +889,7 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
                   {selectedMember && (
                     <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      <span>{selectedMember.Condicion} · Cuota: ${selectedMember.Cuota.toFixed(2)}</span>
+                      <span>{selectedMember.Estatus} · Cuota: ${selectedMember.Cuota.toFixed(2)}</span>
                     </span>
                   )}
                 </div>
@@ -830,7 +908,7 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
                     <datalist id="miembros-autocomplete-list">
                       {miembros.map((m) => (
                         <option key={m.ID_Miembro} value={m.Miembro_Aspirante}>
-                          {m.Condicion} · {m.Grupo_Horario} (Cuota: ${m.Cuota})
+                          {m.Estatus} · {m.Grupo_Horario} (Cuota: ${m.Cuota})
                         </option>
                       ))}
                     </datalist>
@@ -865,9 +943,15 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
                             <UserCheck className="w-4 h-4 text-blue-600" />
                             <span>Ficha del Miembro: {selectedMember.Miembro_Aspirante}</span>
                           </div>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase bg-blue-100 text-blue-800 border border-blue-200">
-                            {selectedMember.Condicion}
-                          </span>
+                          {selectedMember.Estatus && (() => {
+                            const badge = getEstatusBadgeStyle(selectedMember.Estatus);
+                            return (
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${badge.bg} ${badge.text} ${badge.border}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                                {selectedMember.Estatus}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2.5 text-slate-700">
                           <div>

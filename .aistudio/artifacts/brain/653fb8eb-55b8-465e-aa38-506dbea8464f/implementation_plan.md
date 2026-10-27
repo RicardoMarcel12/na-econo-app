@@ -138,6 +138,8 @@ Un sistema integral de gestión financiera y administrativa para la escuela de f
 │     • GET /api/v1/materiales / POST /api/v1/materiales                │
 │     • GET /api/v1/otros / POST /api/v1/otros                          │
 │     • GET /api/v1/mora / POST /api/v1/mora/reconciliar                │
-│     • POST /api/v1/batch/sync (Carga masiva centralizada)             │
-└────────────────────────────────────────────────────────────────────────┘
-```
+---
+
+### 5. Actualizaciones Recientes
+- **Insignias que inician con número 1**: Se asignó una paleta activa distintiva y con alto contraste para los códigos del catálogo que comienzan con `1` (Cian `10`, Turquesa `11`, Fucsia `12`, Orquídea `13`, Lima `14`, Ámbar `15`, Melocotón `16`, Rosa `17`, Azul Acero `18`, Zafiro `19` y Turquesa general para la serie 1). Se mantiene su estado como activo (`isActivo: true`).
+

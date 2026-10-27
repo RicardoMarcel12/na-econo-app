@@ -4,10 +4,28 @@
  */
 
 import { useState, useEffect } from 'react';
-import { ActiveTab, DatabaseState, Miembro, CuotaMembresia, MaterialClase, TransaccionOtro, ReporteMora } from './types/models';
+import {
+  ActiveTab,
+  DatabaseState,
+  Miembro,
+  CuotaMembresia,
+  MaterialClase,
+  TransaccionOtro,
+  ReporteMora,
+  HorarioClase,
+  Instructor,
+  GrupoClase
+} from './types/models';
 import { loadDatabaseState, saveDatabaseState, resetDatabaseToDefault } from './utils/storage';
+import {
+  CATALOGO_ESTATUS_DEFAULT,
+  INITIAL_HORARIOS,
+  INITIAL_INSTRUCTORES,
+  INITIAL_GRUPOS
+} from './data/seedData';
 import { Header } from './components/Header';
 import { DashboardView } from './components/DashboardView';
+import { CatalogosView } from './components/CatalogosView';
 import { MiembrosView } from './components/MiembrosView';
 import { CuotasView } from './components/CuotasView';
 import { MaterialesView } from './components/MaterialesView';
@@ -28,6 +46,156 @@ export default function App() {
   useEffect(() => {
     saveDatabaseState(data);
   }, [data]);
+
+  // Catálogo de Estatus Handlers
+  const currentCatalogoEstatus = data.catalogoEstatus || CATALOGO_ESTATUS_DEFAULT;
+  const currentHorarios = data.horarios || INITIAL_HORARIOS;
+  const currentInstructores = data.instructores || INITIAL_INSTRUCTORES;
+  const currentGrupos = data.grupos || INITIAL_GRUPOS;
+
+  const handleAddEstatus = (newStatus: string) => {
+    const trimmed = newStatus.trim();
+    if (!trimmed) return;
+    if (currentCatalogoEstatus.some(s => s.toLowerCase() === trimmed.toLowerCase())) {
+      alert('El estatus "' + trimmed + '" ya existe en el catálogo.');
+      return;
+    }
+    setData((prev) => ({
+      ...prev,
+      catalogoEstatus: [...(prev.catalogoEstatus || CATALOGO_ESTATUS_DEFAULT), trimmed],
+    }));
+  };
+
+  const handleUpdateEstatus = (oldStatus: string, newStatus: string) => {
+    const trimmed = newStatus.trim();
+    if (!trimmed || oldStatus === trimmed) return;
+    setData((prev) => {
+      const existingList = prev.catalogoEstatus || CATALOGO_ESTATUS_DEFAULT;
+      const updatedList = existingList.map((s) => (s === oldStatus ? trimmed : s));
+      // Cascade update to all members having oldStatus
+      const updatedMembers = prev.miembros.map((m) =>
+        m.Estatus === oldStatus ? { ...m, Estatus: trimmed } : m
+      );
+      // Cascade update to all instructors having oldStatus
+      const updatedInstructores = (prev.instructores || INITIAL_INSTRUCTORES).map((i) =>
+        i.Estatus === oldStatus ? { ...i, Estatus: trimmed } : i
+      );
+      return {
+        ...prev,
+        catalogoEstatus: updatedList,
+        miembros: updatedMembers,
+        instructores: updatedInstructores,
+      };
+    });
+  };
+
+  const handleDeleteEstatus = (statusToDelete: string, fallbackStatus?: string) => {
+    setData((prev) => {
+      const existingList = prev.catalogoEstatus || CATALOGO_ESTATUS_DEFAULT;
+      const updatedList = existingList.filter((s) => s !== statusToDelete);
+      const replacement = fallbackStatus || updatedList[0] || '03-Miembro';
+      // Reassign any members having this status to the fallback status
+      const updatedMembers = prev.miembros.map((m) =>
+        m.Estatus === statusToDelete ? { ...m, Estatus: replacement } : m
+      );
+      // Reassign any instructors having this status to the fallback status
+      const updatedInstructores = (prev.instructores || INITIAL_INSTRUCTORES).map((i) =>
+        i.Estatus === statusToDelete ? { ...i, Estatus: replacement } : i
+      );
+      return {
+        ...prev,
+        catalogoEstatus: updatedList,
+        miembros: updatedMembers,
+        instructores: updatedInstructores,
+      };
+    });
+  };
+
+  const handleResetEstatus = () => {
+    if (!confirm('¿Desea restaurar el catálogo predeterminado de 8 estatus de Nueva Acrópolis?')) return;
+    setData((prev) => ({
+      ...prev,
+      catalogoEstatus: [...CATALOGO_ESTATUS_DEFAULT],
+    }));
+  };
+
+  // Horarios Handlers
+  const handleAddHorario = (newH: Omit<HorarioClase, 'ID_Horario'>): HorarioClase => {
+    const existing = data.horarios || INITIAL_HORARIOS;
+    const nextId = existing.length > 0 ? Math.max(...existing.map(h => h.ID_Horario)) + 1 : 1;
+    const item: HorarioClase = { ...newH, ID_Horario: nextId };
+    setData((prev) => ({
+      ...prev,
+      horarios: [...(prev.horarios || INITIAL_HORARIOS), item],
+    }));
+    return item;
+  };
+
+  const handleUpdateHorario = (updated: HorarioClase) => {
+    setData((prev) => ({
+      ...prev,
+      horarios: (prev.horarios || INITIAL_HORARIOS).map((h) => (h.ID_Horario === updated.ID_Horario ? updated : h)),
+    }));
+  };
+
+  const handleDeleteHorario = (id: number) => {
+    setData((prev) => ({
+      ...prev,
+      horarios: (prev.horarios || INITIAL_HORARIOS).filter((h) => h.ID_Horario !== id),
+    }));
+  };
+
+  // Instructores Handlers
+  const handleAddInstructor = (newInst: Omit<Instructor, 'ID_Instructor'>): Instructor => {
+    const existing = data.instructores || INITIAL_INSTRUCTORES;
+    const nextId = existing.length > 0 ? Math.max(...existing.map(i => i.ID_Instructor)) + 1 : 1;
+    const item: Instructor = { ...newInst, ID_Instructor: nextId };
+    setData((prev) => ({
+      ...prev,
+      instructores: [...(prev.instructores || INITIAL_INSTRUCTORES), item],
+    }));
+    return item;
+  };
+
+  const handleUpdateInstructor = (updated: Instructor) => {
+    setData((prev) => ({
+      ...prev,
+      instructores: (prev.instructores || INITIAL_INSTRUCTORES).map((i) => (i.ID_Instructor === updated.ID_Instructor ? updated : i)),
+    }));
+  };
+
+  const handleDeleteInstructor = (id: number) => {
+    setData((prev) => ({
+      ...prev,
+      instructores: (prev.instructores || INITIAL_INSTRUCTORES).filter((i) => i.ID_Instructor !== id),
+    }));
+  };
+
+  // Grupos Handlers
+  const handleAddGrupo = (newG: Omit<GrupoClase, 'ID_Grupo'>): GrupoClase => {
+    const existing = data.grupos || INITIAL_GRUPOS;
+    const nextId = existing.length > 0 ? Math.max(...existing.map(g => g.ID_Grupo)) + 1 : 1;
+    const item: GrupoClase = { ...newG, ID_Grupo: nextId };
+    setData((prev) => ({
+      ...prev,
+      grupos: [...(prev.grupos || INITIAL_GRUPOS), item],
+    }));
+    return item;
+  };
+
+  const handleUpdateGrupo = (updated: GrupoClase) => {
+    setData((prev) => ({
+      ...prev,
+      grupos: (prev.grupos || INITIAL_GRUPOS).map((g) => (g.ID_Grupo === updated.ID_Grupo ? updated : g)),
+    }));
+  };
+
+  const handleDeleteGrupo = (id: number) => {
+    setData((prev) => ({
+      ...prev,
+      grupos: (prev.grupos || INITIAL_GRUPOS).filter((g) => g.ID_Grupo !== id),
+    }));
+  };
 
   // Miembros Handlers
   const handleAddMiembro = (newMiembro: Omit<Miembro, 'ID_Miembro'>) => {
@@ -212,9 +380,46 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'catalogos' && (
+          <CatalogosView
+            horarios={currentHorarios}
+            onAddHorario={handleAddHorario}
+            onUpdateHorario={handleUpdateHorario}
+            onDeleteHorario={handleDeleteHorario}
+            instructores={currentInstructores}
+            onAddInstructor={handleAddInstructor}
+            onUpdateInstructor={handleUpdateInstructor}
+            onDeleteInstructor={handleDeleteInstructor}
+            grupos={currentGrupos}
+            onAddGrupo={handleAddGrupo}
+            onUpdateGrupo={handleUpdateGrupo}
+            onDeleteGrupo={handleDeleteGrupo}
+            catalogoEstatus={currentCatalogoEstatus}
+            onAddEstatus={handleAddEstatus}
+            onUpdateEstatus={handleUpdateEstatus}
+            onDeleteEstatus={handleDeleteEstatus}
+            onResetEstatus={handleResetEstatus}
+            miembros={data.miembros}
+            onAddMiembro={handleAddMiembro}
+            onUpdateMiembro={handleUpdateMiembro}
+            onDeleteMiembro={handleDeleteMiembro}
+            onImportMiembros={handleImportMiembros}
+            onNavigateToCuotasWithMember={(nombre) => {
+              setPresetMemberName(nombre);
+              setActiveTab('cuotas');
+              setIsCuotaAddModalOpenDirectly(true);
+            }}
+          />
+        )}
+
         {activeTab === 'miembros' && (
           <MiembrosView
             miembros={data.miembros}
+            catalogoEstatus={currentCatalogoEstatus}
+            onAddEstatus={handleAddEstatus}
+            onUpdateEstatus={handleUpdateEstatus}
+            onDeleteEstatus={handleDeleteEstatus}
+            onResetEstatus={handleResetEstatus}
             onAddMiembro={handleAddMiembro}
             onUpdateMiembro={handleUpdateMiembro}
             onDeleteMiembro={handleDeleteMiembro}

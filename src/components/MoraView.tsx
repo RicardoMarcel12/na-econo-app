@@ -3,6 +3,7 @@ import { ReporteMora, CuotaMembresia } from '../types/models';
 import { exportMoraCSV, downloadFile } from '../utils/csvEngine';
 import { calculateMoraCategories } from '../services/moraBackendService';
 import { Search, Download, ArrowRight, PieChart as PieChartIcon } from 'lucide-react';
+import { TableSortHeader, cycleSort, sortRows, SortDirection } from './TableSortHeader';
 
 interface MoraViewProps {
   moraList: ReporteMora[];
@@ -18,6 +19,16 @@ export const MoraView: React.FC<MoraViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'ALL' | 'SOLVENTES' | 'PEQUENA' | 'TRES_MAS'>('ALL');
   const [hoveredSlice, setHoveredSlice] = useState<string | null>(null);
+
+  // Table Sorting state (3-state toggle: default ID, asc, desc)
+  const [sortKey, setSortKey] = useState<string>('default');
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  const handleSort = (key: string) => {
+    const next = cycleSort(sortKey, key, sortDirection);
+    setSortKey(next.key);
+    setSortDirection(next.direction);
+  };
 
   // Real-time backend calculation of the 3 categories
   const stats = useMemo(() => {
@@ -43,6 +54,10 @@ export const MoraView: React.FC<MoraViewProps> = ({
       return matchesSearch;
     });
   }, [moraList, searchTerm, selectedCategoryFilter]);
+
+  const sortedMora = useMemo(() => {
+    return sortRows(filteredMora, sortKey, sortDirection, 'ID_Mora');
+  }, [filteredMora, sortKey, sortDirection]);
 
   const handleExportCSV = () => {
     const csv = exportMoraCSV(filteredMora);
@@ -174,22 +189,49 @@ export const MoraView: React.FC<MoraViewProps> = ({
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
                   <tr>
-                    {/* Exact 4 columns requested by user */}
-                    <th className="py-2.5 px-3">Miembro</th>
-                    <th className="py-2.5 px-3 text-right">Saldo Año Anterior</th>
-                    <th className="py-2.5 px-3 text-right">Saldo Actual</th>
-                    <th className="py-2.5 px-3 text-center">Número de Meses en Mora</th>
+                    {/* Exact 4 columns requested by user with 3-state sorting toggle */}
+                    <TableSortHeader
+                      columnKey="Miembro_Aspirante"
+                      label="Miembro"
+                      sortKey={sortKey}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                    <TableSortHeader
+                      columnKey="Saldo_Anterior"
+                      label="Saldo Año Anterior"
+                      sortKey={sortKey}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      align="right"
+                    />
+                    <TableSortHeader
+                      columnKey="Saldo_Actual"
+                      label="Saldo Actual"
+                      sortKey={sortKey}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      align="right"
+                    />
+                    <TableSortHeader
+                      columnKey="Meses_En_Mora"
+                      label="Número de Meses en Mora"
+                      sortKey={sortKey}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                      align="center"
+                    />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredMora.length === 0 ? (
+                  {sortedMora.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="py-8 text-center text-slate-400">
                         No se encontraron registros de mora con los criterios aplicados.
                       </td>
                     </tr>
                   ) : (
-                    filteredMora.map((item) => (
+                    sortedMora.map((item) => (
                       <tr key={item.ID_Mora} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-2.5 px-3 font-medium text-slate-900">
                           {item.Miembro_Aspirante}
@@ -211,9 +253,15 @@ export const MoraView: React.FC<MoraViewProps> = ({
             </div>
 
             <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>{filteredMora.length} miembros en atraso</span>
+              <div className="flex items-center gap-2">
+                <span>{sortedMora.length} miembros en atraso</span>
+                <span className="text-slate-300">·</span>
+                <span className="text-slate-400">
+                  Orden: {sortDirection === null || sortKey === 'default' ? 'Por defecto (ID)' : `${sortKey} (${sortDirection === 'asc' ? 'ascendente' : 'descendente'})`}
+                </span>
+              </div>
               <span className="font-mono tabular-nums font-semibold text-rose-700">
-                Total saldo actual: ${filteredMora.reduce((acc, m) => acc + m.Saldo_Actual, 0).toFixed(2)}
+                Total saldo actual: ${sortedMora.reduce((acc, m) => acc + m.Saldo_Actual, 0).toFixed(2)}
               </span>
             </div>
           </div>

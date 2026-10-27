@@ -216,7 +216,7 @@ export function exportMiembrosCSV(data: Miembro[]): string {
   const headers = [
     'ID_Miembro',
     'Miembro_Aspirante',
-    'Condicion',
+    'Estatus',
     'DUI',
     'Celular',
     'Correo',
@@ -231,7 +231,7 @@ export function exportMiembrosCSV(data: Miembro[]): string {
     lines.push([
       escapeCSVField(item.ID_Miembro),
       escapeCSVField(item.Miembro_Aspirante),
-      escapeCSVField(item.Condicion),
+      escapeCSVField(item.Estatus || '03-Miembro'),
       escapeCSVField(item.DUI),
       escapeCSVField(item.Celular),
       escapeCSVField(item.Correo),
@@ -249,7 +249,7 @@ export function exportMiembrosCSV(data: Miembro[]): string {
  */
 export function detectCSVType(headerRow: string[]): 'miembros' | 'cuotas' | 'materiales' | 'otros' | 'mora' | 'unknown' {
   const cleanHeaders = headerRow.map(h => h.trim().toLowerCase());
-  if (cleanHeaders.includes('id_miembro') || cleanHeaders.includes('condicion') || cleanHeaders.includes('celular')) {
+  if (cleanHeaders.includes('id_miembro') || cleanHeaders.includes('condicion') || cleanHeaders.includes('celular') || cleanHeaders.includes('estatus')) {
     return 'miembros';
   }
   if (cleanHeaders.includes('id_registro') || cleanHeaders.includes('monto_cuota')) {

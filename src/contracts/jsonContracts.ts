@@ -12,7 +12,7 @@ export const MiembroSchema = {
   required: [
     "ID_Miembro",
     "Miembro_Aspirante",
-    "Condicion",
+    "Estatus",
     "DUI",
     "Celular",
     "Correo",
@@ -33,10 +33,9 @@ export const MiembroSchema = {
       maxLength: 150,
       description: "Nombre completo del estudiante o miembro."
     },
-    Condicion: {
+    Estatus: {
       type: "string",
-      enum: ["Miembro", "Aspirante", "Miembro Activo", "Honorario"],
-      description: "Condición académica e institucional en la Escuela de Filosofía."
+      description: "Estatus del catálogo institucional que sustituye la condición (ej. 01-J.F., 02-F.F.V.V., 03-Miembro, 04-Probacionista, 05-Inscrito, 06-Ficha llena, 98-Sospecha de retiro, 99-Retirado)."
     },
     DUI: {
       type: "string",

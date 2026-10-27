@@ -38,6 +38,16 @@ export const Header: React.FC<HeaderProps> = ({
               Dashboard
             </button>
             <button
+              onClick={() => onSelectTab('catalogos')}
+              className={`text-sm font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                activeTab === 'catalogos'
+                  ? 'text-slate-900 border-b-2 border-slate-900 pb-1 font-bold'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Catálogos
+            </button>
+            <button
               onClick={() => onSelectTab('miembros')}
               className={`text-sm font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                 activeTab === 'miembros'
@@ -129,6 +139,12 @@ export const Header: React.FC<HeaderProps> = ({
           className={`whitespace-nowrap font-medium ${activeTab === 'dashboard' ? 'text-slate-900 font-semibold' : 'text-slate-500'}`}
         >
           Dashboard
+        </button>
+        <button
+          onClick={() => onSelectTab('catalogos')}
+          className={`whitespace-nowrap font-medium ${activeTab === 'catalogos' ? 'text-slate-900 font-bold' : 'text-slate-500'}`}
+        >
+          Catálogos
         </button>
         <button
           onClick={() => onSelectTab('miembros')}
