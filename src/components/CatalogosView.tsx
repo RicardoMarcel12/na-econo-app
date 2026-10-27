@@ -1264,6 +1264,9 @@ export const CatalogosView: React.FC<CatalogosViewProps> = ({
         <MiembrosView
           miembros={miembros}
           catalogoEstatus={catalogoEstatus}
+          grupos={grupos}
+          horarios={horarios}
+          instructores={instructores}
           onAddEstatus={onAddEstatus}
           onUpdateEstatus={onUpdateEstatus}
           onDeleteEstatus={onDeleteEstatus}

@@ -22,6 +22,7 @@ import {
   Users,
   ChevronDown,
   ChevronUp,
+  Lock,
 } from 'lucide-react';
 import { TableSortHeader, cycleSort, sortRows, SortDirection } from './TableSortHeader';
 import { isEstatusActivo, getEstatusBadgeStyle } from './MiembrosView';
@@ -46,6 +47,121 @@ const getMonthNameFromDate = (dateStr: string): string => {
     }
   }
   return MESES_CALENDARIO[new Date().getMonth()];
+};
+
+export interface MonthCalculationResult {
+  month: string;
+  isMora: boolean;
+  reason: 'mora_antiguo' | 'solvente_siguiente' | 'solvente_primer_pago' | 'sin_miembro';
+  description: string;
+  detail?: string;
+  badgeLabel: string;
+}
+
+/**
+ * Calcula automáticamente el mes a abonar para un miembro seleccionado:
+ * - Para miembros con mora: mes más antiguo sin pago
+ * - Para miembros solventes: mes siguiente al máximo registrado
+ */
+export function calculatePaymentMonthForMember(
+  memberName: string,
+  cuotas: CuotaMembresia[],
+  moraList: ReporteMora[]
+): MonthCalculationResult {
+  const cleanName = memberName.trim().toLowerCase();
+  const currentMonth = MESES_CALENDARIO[new Date().getMonth()];
+
+  if (!cleanName) {
+    return {
+      month: currentMonth,
+      isMora: false,
+      reason: 'sin_miembro',
+      description: `Seleccione un miembro para calcular automáticamente el mes a abonar (mes en curso por defecto: ${currentMonth}).`,
+      badgeLabel: 'Pendiente de Selección',
+    };
+  }
+
+  // 1. Verificar si el miembro tiene mora activa registrada
+  const moraRecord = moraList.find(
+    (m) => m.Miembro_Aspirante.trim().toLowerCase() === cleanName && m.Saldo_Actual > 0
+  );
+
+  // Cuotas pagadas del miembro
+  const memberCuotas = cuotas.filter(
+    (c) => c.Miembro_Aspirante.trim().toLowerCase() === cleanName
+  );
+  const paidMonthsSet = new Set(memberCuotas.map((c) => c.Mes_Pagado.trim().toLowerCase()));
+
+  if (moraRecord && (moraRecord.Saldo_Actual > 0 || moraRecord.Meses_En_Mora > 0)) {
+    // Miembro con mora: calcular el mes más antiguo sin pago
+    let candidateOldestMonth: string | null = null;
+
+    if (moraRecord.Detalle_Meses) {
+      // Analizar tokens en Detalle_Meses (ej. "Enero, Febrero" o "Diciembre 2025, Enero, Febrero")
+      const tokens = moraRecord.Detalle_Meses.split(',').map((t) => t.trim());
+      for (const token of tokens) {
+        const matched = MESES_CALENDARIO.find((m) =>
+          token.toLowerCase().includes(m.toLowerCase())
+        );
+        if (matched && !paidMonthsSet.has(matched.toLowerCase())) {
+          candidateOldestMonth = matched;
+          break;
+        }
+      }
+    }
+
+    // Si no se dedujo de Detalle_Meses, buscar el mes del año calendario más antiguo no pagado
+    if (!candidateOldestMonth) {
+      for (const m of MESES_CALENDARIO) {
+        if (!paidMonthsSet.has(m.toLowerCase())) {
+          candidateOldestMonth = m;
+          break;
+        }
+      }
+    }
+
+    const targetMonth = candidateOldestMonth || MESES_CALENDARIO[0];
+    return {
+      month: targetMonth,
+      isMora: true,
+      reason: 'mora_antiguo',
+      description: `Miembro con mora (${moraRecord.Meses_En_Mora} meses pendientes): Calculado automáticamente al mes más antiguo sin pago (${targetMonth}).`,
+      detail: `Deuda pendiente: $${moraRecord.Saldo_Actual.toFixed(2)} (${moraRecord.Detalle_Meses || 'Meses en mora'})`,
+      badgeLabel: `Mora: Mes más antiguo (${targetMonth})`,
+    };
+  }
+
+  // 2. Miembro solvente (al día o sin mora activa)
+  // Encontrar el mes máximo registrado en sus cuotas
+  const monthIndices = memberCuotas
+    .map((c) => MESES_CALENDARIO.findIndex((m) => m.toLowerCase() === c.Mes_Pagado.trim().toLowerCase()))
+    .filter((idx) => idx >= 0);
+
+  if (monthIndices.length > 0) {
+    const maxIndex = Math.max(...monthIndices);
+    const maxMonthName = MESES_CALENDARIO[maxIndex];
+    const nextIndex = (maxIndex + 1) % 12;
+    const nextMonthName = MESES_CALENDARIO[nextIndex];
+
+    return {
+      month: nextMonthName,
+      isMora: false,
+      reason: 'solvente_siguiente',
+      description: `Miembro solvente: Calculado automáticamente al mes siguiente (${nextMonthName}) posterior al máximo registrado (${maxMonthName}).`,
+      detail: `Último mes pagado: ${maxMonthName}`,
+      badgeLabel: `Solvente: Mes siguiente (${nextMonthName})`,
+    };
+  }
+
+  // Miembro solvente sin cuotas previas en el sistema
+  return {
+    month: currentMonth,
+    isMora: false,
+    reason: 'solvente_primer_pago',
+    description: `Miembro solvente sin pagos previos: Calculado automáticamente al mes en curso (${currentMonth}).`,
+    detail: 'Primer pago de cuota registrado',
+    badgeLabel: `Solvente: Mes en curso (${currentMonth})`,
+  };
 };
 
 interface CuotasViewProps {
@@ -75,9 +191,52 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrupo, setFilterGrupo] = useState('ALL');
-  const [filterMes, setFilterMes] = useState('ALL');
+  // Por defecto filtra el mes en curso
+  const [filterMes, setFilterMes] = useState<string>(() => MESES_CALENDARIO[new Date().getMonth()]);
   const [filterMetodo, setFilterMetodo] = useState('ALL');
   const [onlyMoraFilter, setOnlyMoraFilter] = useState(false);
+
+  // 5 botones rápidos: 3 meses anteriores, mes actual en color verde, próximo mes en azul grisáceo
+  const currentMonthIdx = new Date().getMonth();
+  const quickMonthButtons = useMemo(() => {
+    return [
+      {
+        label: MESES_CALENDARIO[(currentMonthIdx - 3 + 12) % 12],
+        type: 'prev-3',
+        subtitle: 'Hace 3 meses',
+        colorClass: 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-2xs',
+        activeClass: 'bg-slate-800 text-white border-slate-800 font-bold shadow-xs ring-2 ring-slate-400',
+      },
+      {
+        label: MESES_CALENDARIO[(currentMonthIdx - 2 + 12) % 12],
+        type: 'prev-2',
+        subtitle: 'Hace 2 meses',
+        colorClass: 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-2xs',
+        activeClass: 'bg-slate-800 text-white border-slate-800 font-bold shadow-xs ring-2 ring-slate-400',
+      },
+      {
+        label: MESES_CALENDARIO[(currentMonthIdx - 1 + 12) % 12],
+        type: 'prev-1',
+        subtitle: 'Mes anterior',
+        colorClass: 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-2xs',
+        activeClass: 'bg-slate-800 text-white border-slate-800 font-bold shadow-xs ring-2 ring-slate-400',
+      },
+      {
+        label: MESES_CALENDARIO[currentMonthIdx],
+        type: 'current',
+        subtitle: 'Mes en curso (Actual)',
+        colorClass: 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 font-semibold shadow-xs',
+        activeClass: 'bg-emerald-700 text-white border-emerald-800 font-bold shadow-md ring-2 ring-emerald-300 ring-offset-1',
+      },
+      {
+        label: MESES_CALENDARIO[(currentMonthIdx + 1) % 12],
+        type: 'next',
+        subtitle: 'Próximo mes',
+        colorClass: 'bg-slate-600 hover:bg-slate-700 text-white border-slate-600 font-semibold shadow-xs',
+        activeClass: 'bg-slate-800 text-white border-slate-800 font-bold shadow-md ring-2 ring-sky-300 ring-offset-1',
+      },
+    ];
+  }, [currentMonthIdx]);
 
   // Table Sorting state (3-state toggle: default ID, asc, desc)
   const [sortKey, setSortKey] = useState<string>('default');
@@ -104,6 +263,11 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
   const [showMemberDetails, setShowMemberDetails] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [importNotification, setImportNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Cálculo dinámico del mes a abonar según el estado del miembro seleccionado
+  const computedMonthInfo = useMemo(() => {
+    return calculatePaymentMonthForMember(formData.Miembro_Aspirante, cuotas, moraList);
+  }, [formData.Miembro_Aspirante, cuotas, moraList]);
 
   // Map of members with active mora
   const moraMap = useMemo(() => {
@@ -264,7 +428,9 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
 
     const derivedDUI = matched?.DUI || editingItem?.DUI || undefined;
     const derivedGrupo = matched?.Grupo_Horario || editingItem?.Grupo_Horario || GRUPOS_HORARIOS_DEFAULT[0];
-    const derivedMes = editingItem?.Mes_Pagado || getMonthNameFromDate(formData.Fecha_Pago);
+    // En nuevo pago, el mes no es seleccionable sino que se calcula automáticamente:
+    // mes más antiguo sin pago para miembros con mora, o mes siguiente al máximo registrado para solventes
+    const derivedMes = editingItem ? editingItem.Mes_Pagado : computedMonthInfo.month;
 
     if (editingItem) {
       onUpdateCuota({
@@ -508,6 +674,58 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
               <option key={mp} value={mp}>{mp}</option>
             ))}
           </select>
+        </div>
+      </div>
+
+      {/* 5 Botones Rápidos de Meses: 3 anteriores, mes actual en verde, próximo mes en azul grisáceo */}
+      <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs shadow-2xs">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-semibold text-slate-800">Filtro de Meses:</span>
+            <span className="text-[11px] text-slate-500">
+              Mostrando: <strong className="text-slate-900 font-bold bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{filterMes === 'ALL' ? 'Todos los Meses' : filterMes}</strong>
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {quickMonthButtons.map((btn) => {
+            const isSelected = filterMes === btn.label;
+            return (
+              <button
+                key={btn.label}
+                type="button"
+                onClick={() => setFilterMes(btn.label)}
+                title={`${btn.label} (${btn.subtitle})`}
+                className={`px-3 py-1.5 rounded-md text-xs transition-all cursor-pointer border flex items-center gap-1.5 ${
+                  isSelected ? btn.activeClass : btn.colorClass
+                }`}
+              >
+                <span>{btn.label}</span>
+                {btn.type === 'current' && (
+                  <span className="text-[9px] bg-white/25 px-1 py-0.2 rounded uppercase tracking-wider font-extrabold text-white">
+                    Actual
+                  </span>
+                )}
+                {btn.type === 'next' && (
+                  <span className="text-[9px] bg-white/25 px-1 py-0.2 rounded uppercase tracking-wider font-extrabold text-white">
+                    Próx.
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setFilterMes('ALL')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer border ${
+              filterMes === 'ALL'
+                ? 'bg-slate-800 text-white border-slate-800 font-bold shadow-xs'
+                : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 shadow-2xs'
+            }`}
+          >
+            Todos
+          </button>
         </div>
       </div>
 
@@ -824,17 +1042,22 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] text-slate-400">Filtrar mes rápido:</span>
-                {['Enero', 'Febrero', 'Marzo'].map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setFilterMes(m)}
-                    className="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer shadow-2xs"
-                  >
-                    {m}
-                  </button>
-                ))}
+                <span className="text-[11px] text-slate-400">Filtrar mes:</span>
+                {quickMonthButtons.map((btn) => {
+                  const isSelected = filterMes === btn.label;
+                  return (
+                    <button
+                      key={btn.label}
+                      type="button"
+                      onClick={() => setFilterMes(btn.label)}
+                      className={`px-2.5 py-1 text-xs transition-colors cursor-pointer border rounded ${
+                        isSelected ? btn.activeClass : btn.colorClass
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -968,18 +1191,14 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
                           </div>
                           <div>
                             <span className="text-[10px] uppercase font-bold text-slate-400 block">Grupo y Horario</span>
-                            <span className="font-medium text-slate-900">{selectedMember.Grupo_Horario}</span>
+                            <span className="font-medium text-slate-900">{selectedMember.Grupo_Horario || '— (No asignado / Estatus 01 o 02)'}</span>
                           </div>
                           <div>
                             <span className="text-[10px] uppercase font-bold text-slate-400 block">Instructores</span>
-                            <span className="font-medium text-slate-900">{selectedMember.Instructores}</span>
+                            <span className="font-medium text-slate-900">{selectedMember.Instructores || '— (No asignado / Estatus 01 o 02)'}</span>
                           </div>
-                          <div>
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Concepto Pago</span>
-                            <span className="text-slate-900">{selectedMember.Concepto_Pago}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Cuota Asignada</span>
+                          <div className="col-span-2 sm:col-span-1">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Cuota Mensual Base</span>
                             <span className="font-mono font-bold text-slate-900">${selectedMember.Cuota.toFixed(2)}</span>
                           </div>
                         </div>
@@ -1001,6 +1220,53 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
                         </p>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Mes que Cubre la Cuota (Cálculo Automático por Sistema - No Seleccionable) */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block font-semibold text-slate-800 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Mes que Cubre la Cuota *</span>
+                  </label>
+                  <span className="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-300 flex items-center gap-1 shadow-2xs">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>No seleccionable (Cálculo Automático)</span>
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 bg-white border border-slate-300 rounded-md shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-extrabold text-slate-900 font-sans tracking-tight">
+                      {editingItem ? editingItem.Mes_Pagado : computedMonthInfo.month}
+                    </span>
+                    {editingItem ? (
+                      <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200 font-medium">
+                        Comprobante original
+                      </span>
+                    ) : (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                        computedMonthInfo.isMora
+                          ? 'bg-amber-100 text-amber-900 border-amber-300'
+                          : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                      }`}>
+                        {computedMonthInfo.badgeLabel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {!editingItem && (
+                  <div className="text-[11px] text-slate-600 flex items-start gap-1.5 pt-0.5">
+                    <Info className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-slate-700">{computedMonthInfo.description}</p>
+                      {computedMonthInfo.detail && (
+                        <p className="text-slate-500 text-[10px] mt-0.5 font-mono">{computedMonthInfo.detail}</p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

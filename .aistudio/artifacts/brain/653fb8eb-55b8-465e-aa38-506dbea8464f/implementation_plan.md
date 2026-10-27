@@ -142,4 +142,10 @@ Un sistema integral de gestión financiera y administrativa para la escuela de f
 
 ### 5. Actualizaciones Recientes
 - **Insignias que inician con número 1**: Se asignó una paleta activa distintiva y con alto contraste para los códigos del catálogo que comienzan con `1` (Cian `10`, Turquesa `11`, Fucsia `12`, Orquídea `13`, Lima `14`, Ámbar `15`, Melocotón `16`, Rosa `17`, Azul Acero `18`, Zafiro `19` y Turquesa general para la serie 1). Se mantiene su estado como activo (`isActivo: true`).
+- **Catálogo de Miembros (Estatus 01 y 02 y Eliminación de Concepto)**:
+  - Se permite y valida que miembros con estatus `01` (`01-J.F.`) y `02` (`02-F.F.V.V.`) puedan tener vacíos los campos de `Grupo y Horario` e `Instructores` (no obligatorios en formulario, visualización elegante con etiqueta `— Sin grupo asignado` y `— Sin instructor`, opción en filtro de grupos).
+- **Catálogo de Miembros (Grupos y Horarios vinculados a GRUPOS DE CLASE)**:
+  - El campo y lista desplegable de **Grupo y Horario** en el catálogo de miembros se alimenta en tiempo real de los registros del catálogo oficial de **GRUPOS DE CLASE** (resolviendo dinámicamente su número de grupo y su horario asignado de día y horas).
+  - Al seleccionar un grupo del catálogo en el formulario de miembro, el sistema autocompleta automáticamente el **Instructor titular** asignado a dicho grupo en el catálogo de Grupos.
+  - El filtro por grupo en la cabecera de la tabla de miembros se llena dinámicamente con todos los grupos de clase registrados.
 

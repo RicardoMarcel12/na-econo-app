@@ -18,9 +18,9 @@ export interface Miembro {
   DUI: string; // Formato estándar El Salvador: 00000000-0
   Celular: string; // Teléfono / WhatsApp
   Correo: string; // Correo electrónico
-  Grupo_Horario: string; // Grupo y horario asignado
-  Instructores: string; // Nombre del instructor o instructores
-  Concepto_Pago: string; // Concepto Pago
+  Grupo_Horario: string; // Grupo y horario asignado (vacío para estatus 01 y 02)
+  Instructores: string; // Nombre del instructor o instructores (vacío para estatus 01 y 02)
+  Concepto_Pago?: string; // Concepto Pago (eliminado del catálogo de miembros; pertenece al módulo de cuotas)
   Cuota: number; // Monto base de cuota mensual en USD
   Fecha_Ingreso?: string; // YYYY-MM-DD
 }
@@ -52,6 +52,15 @@ export interface MaterialClase {
 
 export type EstadoTransaccionOtro = 'Completado' | 'Pendiente' | 'Anulado';
 
+export interface ArchivoAdjunto {
+  id: string;
+  nombre: string;
+  tamano: number; // en bytes
+  tipo: string; // MIME type (ej. 'application/pdf', 'image/jpeg', etc.)
+  dataUrl?: string; // Data URL Base64 para visualización y descarga
+  fechaSubida: string; // YYYY-MM-DD o ISO string
+}
+
 export interface TransaccionOtro {
   ID_Transaccion: number;
   Fecha: string; // YYYY-MM-DD
@@ -60,6 +69,7 @@ export interface TransaccionOtro {
   Contacto?: string;
   Estado: EstadoTransaccionOtro;
   Accion_Pendiente?: string;
+  Archivos?: ArchivoAdjunto[];
 }
 
 export type EstadoGestionMora = 'Notificado' | 'En Negociación' | 'Sin Respuesta';

@@ -16,9 +16,6 @@ export const MiembroSchema = {
     "DUI",
     "Celular",
     "Correo",
-    "Grupo_Horario",
-    "Instructores",
-    "Concepto_Pago",
     "Cuota"
   ],
   properties: {
@@ -254,6 +251,21 @@ export const TransaccionOtroSchema = {
       type: "string",
       maxLength: 250,
       description: "Siguiente paso a realizar (ej: 'Enviar recibo a donante', 'Archivar comprobante')."
+    },
+    Archivos: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          nombre: { type: "string" },
+          tamano: { type: "number" },
+          tipo: { type: "string" },
+          dataUrl: { type: "string" },
+          fechaSubida: { type: "string" }
+        }
+      },
+      description: "Archivos adjuntos a la transacción (recibos, facturas, contratos, etc.)"
     }
   },
   additionalProperties: false
@@ -509,11 +521,14 @@ export function validateEntityPayload(schemaType: 'miembros' | 'cuotas' | 'mater
     if (!item.Correo || !item.Correo.includes('@')) {
       errors.push('Correo electrónico es requerido y debe ser válido.');
     }
-    if (!item.Grupo_Horario || typeof item.Grupo_Horario !== 'string') {
-      errors.push('Grupo_Horario es requerido.');
-    }
-    if (!item.Instructores || typeof item.Instructores !== 'string') {
-      errors.push('Instructores es requerido.');
+    const isExempt = typeof item.Estatus === 'string' && (item.Estatus.trim().startsWith('01') || item.Estatus.trim().startsWith('02'));
+    if (!isExempt) {
+      if (!item.Grupo_Horario || typeof item.Grupo_Horario !== 'string') {
+        errors.push('Grupo_Horario es requerido para este estatus.');
+      }
+      if (!item.Instructores || typeof item.Instructores !== 'string') {
+        errors.push('Instructores es requerido para este estatus.');
+      }
     }
     if (typeof item.Cuota !== 'number' || item.Cuota <= 0) {
       errors.push('Cuota debe ser un número mayor a 0.00.');

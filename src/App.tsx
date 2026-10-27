@@ -416,6 +416,9 @@ export default function App() {
           <MiembrosView
             miembros={data.miembros}
             catalogoEstatus={currentCatalogoEstatus}
+            grupos={currentGrupos}
+            horarios={currentHorarios}
+            instructores={currentInstructores}
             onAddEstatus={handleAddEstatus}
             onUpdateEstatus={handleUpdateEstatus}
             onDeleteEstatus={handleDeleteEstatus}

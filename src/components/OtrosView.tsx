@@ -1,8 +1,33 @@
 import React, { useState, useMemo } from 'react';
-import { TransaccionOtro, EstadoTransaccionOtro } from '../types/models';
+import { TransaccionOtro, EstadoTransaccionOtro, ArchivoAdjunto } from '../types/models';
 import { exportOtrosCSV, parseCSV, downloadFile } from '../utils/csvEngine';
-import { Search, Plus, Download, Upload, Trash2, Edit2, CheckCircle2, AlertCircle, X, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import {
+  Search,
+  Plus,
+  Download,
+  Upload,
+  Trash2,
+  Edit2,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  File,
+  Eye,
+} from 'lucide-react';
 import { TableSortHeader, cycleSort, sortRows, SortDirection } from './TableSortHeader';
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+};
 
 interface OtrosViewProps {
   otros: TransaccionOtro[];
@@ -36,6 +61,11 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<TransaccionOtro | null>(null);
 
+  // Modal para ver y gestionar archivos adjuntos de una fila específica
+  const [attachmentTransaction, setAttachmentTransaction] = useState<TransaccionOtro | null>(null);
+  // Modal lightbox para previsualización de imagen
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
+
   const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('ingreso');
   const [formData, setFormData] = useState({
     Fecha: new Date().toISOString().split('T')[0],
@@ -45,8 +75,112 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
     Estado: 'Completado' as EstadoTransaccionOtro,
     Accion_Pendiente: '',
   });
+  const [formArchivos, setFormArchivos] = useState<ArchivoAdjunto[]>([]);
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Manejo de carga de archivos en el formulario Add/Edit
+  const handleFormFilesSelected = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const newAdjuntos: ArchivoAdjunto[] = [];
+    let processed = 0;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        newAdjuntos.push({
+          id: `arch-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          nombre: file.name,
+          tamano: file.size,
+          tipo: file.type || 'application/octet-stream',
+          dataUrl: e.target?.result as string,
+          fechaSubida: new Date().toISOString().split('T')[0],
+        });
+        processed++;
+        if (processed === files.length) {
+          setFormArchivos((prev) => [...prev, ...newAdjuntos]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveFormFile = (id: string) => {
+    setFormArchivos((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  // Manejo de carga directa desde el modal de adjuntos de fila
+  const handleAddFilesToTransaction = (item: TransaccionOtro, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const newAdjuntos: ArchivoAdjunto[] = [];
+    let processed = 0;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        newAdjuntos.push({
+          id: `arch-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          nombre: file.name,
+          tamano: file.size,
+          tipo: file.type || 'application/octet-stream',
+          dataUrl: e.target?.result as string,
+          fechaSubida: new Date().toISOString().split('T')[0],
+        });
+        processed++;
+        if (processed === files.length) {
+          const updated: TransaccionOtro = {
+            ...item,
+            Archivos: [...(item.Archivos || []), ...newAdjuntos],
+          };
+          onUpdateTransaccion(updated);
+          setAttachmentTransaction(updated);
+          setNotification({
+            message: `Se adjuntaron ${newAdjuntos.length} archivo(s) a la transacción #${item.ID_Transaccion}.`,
+            type: 'success',
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveFileFromTransaction = (item: TransaccionOtro, fileId: string) => {
+    const updatedArchivos = (item.Archivos || []).filter((a) => a.id !== fileId);
+    const updated: TransaccionOtro = {
+      ...item,
+      Archivos: updatedArchivos,
+    };
+    onUpdateTransaccion(updated);
+    setAttachmentTransaction(updated);
+    setNotification({
+      message: 'Archivo eliminado de la transacción.',
+      type: 'success',
+    });
+  };
+
+  const handleDownloadFile = (archivo: ArchivoAdjunto) => {
+    if (!archivo.dataUrl) {
+      // Si es un archivo de prueba sin binario, generar un placeholder descargable
+      const blob = new Blob([`Contenido de archivo de respaldo: ${archivo.nombre}\nRegistrado en Sistema de Economía`], {
+        type: 'text/plain;charset=utf-8',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = archivo.nombre;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = archivo.dataUrl;
+    link.download = archivo.nombre;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const filteredOtros = useMemo(() => {
     return otros.filter((t) => {
@@ -80,6 +214,7 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
       Estado: 'Completado',
       Accion_Pendiente: '',
     });
+    setFormArchivos([]);
     setFormErrors([]);
     setIsModalOpen(true);
   };
@@ -95,6 +230,7 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
       Estado: item.Estado,
       Accion_Pendiente: item.Accion_Pendiente || '',
     });
+    setFormArchivos(item.Archivos || []);
     setFormErrors([]);
     setIsModalOpen(true);
   };
@@ -102,6 +238,7 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingItem(null);
+    setFormArchivos([]);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -134,6 +271,7 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
         Contacto: formData.Contacto.trim() || undefined,
         Estado: formData.Estado,
         Accion_Pendiente: formData.Accion_Pendiente.trim() || undefined,
+        Archivos: formArchivos,
       });
     } else {
       onAddTransaccion({
@@ -143,6 +281,7 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
         Contacto: formData.Contacto.trim() || undefined,
         Estado: formData.Estado,
         Accion_Pendiente: formData.Accion_Pendiente.trim() || undefined,
+        Archivos: formArchivos,
       });
     }
 
@@ -368,6 +507,7 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
                   sortDirection={sortDirection}
                   onSort={handleSort}
                 />
+                <th className="py-2.5 px-3">Archivos / Comprobantes</th>
                 <TableSortHeader
                   columnKey="Accion_Pendiente"
                   label="Acción Pendiente"
@@ -381,7 +521,7 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
             <tbody className="divide-y divide-slate-100">
               {sortedOtros.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                  <td colSpan={9} className="py-8 text-center text-slate-400">
                     No se encontraron transacciones registradas.
                   </td>
                 </tr>
@@ -418,6 +558,31 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
                         }`}>
                           {item.Estado}
                         </span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {item.Archivos && item.Archivos.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setAttachmentTransaction(item)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer shadow-2xs"
+                            title="Ver, descargar o gestionar archivos adjuntos"
+                          >
+                            <Paperclip className="w-3.5 h-3.5 text-blue-600" />
+                            <span>
+                              {item.Archivos.length} {item.Archivos.length === 1 ? 'archivo' : 'archivos'}
+                            </span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setAttachmentTransaction(item)}
+                            className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-700 hover:bg-slate-100 px-2 py-0.5 rounded border border-dashed border-slate-300 transition-colors cursor-pointer"
+                            title="Subir archivo(s) a esta transacción"
+                          >
+                            <Paperclip className="w-3 h-3" />
+                            <span>+ Adjuntar</span>
+                          </button>
+                        )}
                       </td>
                       <td className="py-2.5 px-3 text-slate-500 text-[11px] max-w-xs truncate" title={item.Accion_Pendiente}>
                         {item.Accion_Pendiente || <span className="text-slate-300">—</span>}
@@ -597,6 +762,95 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
                 />
               </div>
 
+              {/* Subir Archivos Adjuntos (Facturas, Recibos, Comprobantes) */}
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <div className="flex items-center justify-between">
+                  <label className="block font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Archivos Adjuntos (Comprobantes, Facturas, Fotos)</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    {formArchivos.length} {formArchivos.length === 1 ? 'archivo' : 'archivos'}
+                  </span>
+                </div>
+
+                <label className="flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50/70 hover:bg-blue-50/50 hover:border-blue-400 transition-colors cursor-pointer">
+                  <Upload className="w-5 h-5 text-slate-400 mb-1" />
+                  <span className="font-semibold text-slate-700 text-xs">
+                    Haga clic o arrastre archivos aquí para adjuntar
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">
+                    PDF, imágenes (PNG, JPG), documentos (múltiples permitidos)
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(e) => handleFormFilesSelected(e.target.files)}
+                    className="hidden"
+                  />
+                </label>
+
+                {formArchivos.length > 0 && (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {formArchivos.map((arch) => (
+                      <div
+                        key={arch.id}
+                        className="flex items-center justify-between p-2 rounded-md bg-white border border-slate-200 shadow-2xs text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {arch.tipo.startsWith('image/') ? (
+                            <ImageIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+                          ) : arch.tipo.includes('pdf') ? (
+                            <FileText className="w-4 h-4 text-rose-600 shrink-0" />
+                          ) : (
+                            <File className="w-4 h-4 text-slate-500 shrink-0" />
+                          )}
+                          <div className="min-w-0 truncate">
+                            <span className="font-medium text-slate-800 block truncate" title={arch.nombre}>
+                              {arch.nombre}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {formatFileSize(arch.tamano)} · {arch.fechaSubida}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {arch.tipo.startsWith('image/') && arch.dataUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage({ url: arch.dataUrl!, title: arch.nombre })}
+                              className="p-1 text-slate-400 hover:text-blue-600 rounded transition-colors cursor-pointer"
+                              title="Previsualizar imagen"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {arch.dataUrl && (
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadFile(arch)}
+                              className="p-1 text-slate-400 hover:text-emerald-600 rounded transition-colors cursor-pointer"
+                              title="Descargar archivo"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFormFile(arch.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                            title="Quitar archivo"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -613,6 +867,188 @@ export const OtrosView: React.FC<OtrosViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Gestión de Archivos Adjuntos por Registro */}
+      {attachmentTransaction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-lg shadow-xl border border-slate-200 max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-blue-50 text-blue-700 rounded-md">
+                  <Paperclip className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Archivos Adjuntos de la Transacción
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    #{attachmentTransaction.ID_Transaccion} · {attachmentTransaction.Fecha} · <strong className="text-slate-800">{attachmentTransaction.Concepto}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAttachmentTransaction(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Zona de subida rápida */}
+            <div className="space-y-2">
+              <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-200 rounded-lg bg-blue-50/40 hover:bg-blue-50 hover:border-blue-400 transition-colors cursor-pointer">
+                <Upload className="w-5 h-5 text-blue-600 mb-1" />
+                <span className="font-semibold text-slate-800 text-xs">
+                  Subir uno o más archivos para este registro
+                </span>
+                <span className="text-[10px] text-slate-500 mt-0.5">
+                  Facturas, recibos de caja, cotizaciones, fotos o comprobantes
+                </span>
+                <input
+                  type="file"
+                  multiple
+                  onChange={(e) => handleAddFilesToTransaction(attachmentTransaction, e.target.files)}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {/* Lista de archivos adjuntos */}
+            <div className="space-y-2">
+              <h4 className="font-semibold text-slate-800 text-xs flex items-center justify-between">
+                <span>Archivos Guardados ({(attachmentTransaction.Archivos || []).length})</span>
+              </h4>
+
+              {(!attachmentTransaction.Archivos || attachmentTransaction.Archivos.length === 0) ? (
+                <div className="py-6 text-center text-slate-400 text-xs border border-slate-100 rounded-lg bg-slate-50">
+                  <Paperclip className="w-6 h-6 mx-auto mb-1.5 text-slate-300" />
+                  <p>Aún no hay archivos adjuntos en esta transacción.</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Use el recuadro superior para cargar comprobantes.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {attachmentTransaction.Archivos.map((arch) => (
+                    <div
+                      key={arch.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-white border border-slate-200 shadow-2xs hover:border-slate-300 transition-colors text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="p-2 rounded bg-slate-100 text-slate-600 shrink-0">
+                          {arch.tipo.startsWith('image/') ? (
+                            <ImageIcon className="w-4 h-4 text-emerald-600" />
+                          ) : arch.tipo.includes('pdf') ? (
+                            <FileText className="w-4 h-4 text-rose-600" />
+                          ) : (
+                            <File className="w-4 h-4 text-slate-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0 truncate">
+                          <span className="font-semibold text-slate-900 block truncate" title={arch.nombre}>
+                            {arch.nombre}
+                          </span>
+                          <span className="text-[11px] text-slate-400 font-mono">
+                            {formatFileSize(arch.tamano)} · Subido el {arch.fechaSubida}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {arch.tipo.startsWith('image/') && arch.dataUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage({ url: arch.dataUrl!, title: arch.nombre })}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors cursor-pointer"
+                            title="Previsualizar"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Ver</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadFile(arch)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded transition-colors cursor-pointer"
+                          title="Descargar archivo a su equipo"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Descargar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFileFromTransaction(attachmentTransaction, arch.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                          title="Eliminar archivo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setAttachmentTransaction(null)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 text-xs font-semibold cursor-pointer shadow-xs"
+              >
+                Listo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal de Previsualización de Imagen */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl max-w-2xl w-full p-4 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <span className="font-semibold text-slate-900 text-xs truncate max-w-md">
+                {previewImage.title}
+              </span>
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-auto flex items-center justify-center bg-slate-50 rounded-md p-2">
+              <img
+                src={previewImage.url}
+                alt={previewImage.title}
+                className="max-h-[65vh] max-w-full object-contain rounded"
+              />
+            </div>
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = previewImage.url;
+                  link.download = previewImage.title;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-900 text-white rounded hover:bg-slate-800 cursor-pointer shadow-xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Descargar Imagen</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -164,11 +164,13 @@ export function exportOtrosCSV(data: TransaccionOtro[]): string {
     'Monto',
     'Contacto',
     'Estado',
-    'Accion_Pendiente'
+    'Accion_Pendiente',
+    'Archivos'
   ];
 
   const lines = [headers.join(',')];
   for (const item of data) {
+    const archivosStr = (item.Archivos || []).map(a => a.nombre).join('; ');
     lines.push([
       escapeCSVField(item.ID_Transaccion),
       escapeCSVField(item.Fecha),
@@ -176,7 +178,8 @@ export function exportOtrosCSV(data: TransaccionOtro[]): string {
       escapeCSVField(item.Monto.toFixed(2)),
       escapeCSVField(item.Contacto || ''),
       escapeCSVField(item.Estado),
-      escapeCSVField(item.Accion_Pendiente || '')
+      escapeCSVField(item.Accion_Pendiente || ''),
+      escapeCSVField(archivosStr)
     ].join(','));
   }
   return lines.join('\r\n');
@@ -222,7 +225,6 @@ export function exportMiembrosCSV(data: Miembro[]): string {
     'Correo',
     'Grupo_Horario',
     'Instructores',
-    'Concepto_Pago',
     'Cuota'
   ];
 
@@ -235,9 +237,8 @@ export function exportMiembrosCSV(data: Miembro[]): string {
       escapeCSVField(item.DUI),
       escapeCSVField(item.Celular),
       escapeCSVField(item.Correo),
-      escapeCSVField(item.Grupo_Horario),
-      escapeCSVField(item.Instructores),
-      escapeCSVField(item.Concepto_Pago),
+      escapeCSVField(item.Grupo_Horario || ''),
+      escapeCSVField(item.Instructores || ''),
       escapeCSVField(item.Cuota.toFixed(2))
     ].join(','));
   }

@@ -11,10 +11,10 @@ import {
   INITIAL_GRUPOS
 } from '../data/seedData';
 
-const KEY_MIEMBROS = 'app_economia_na_miembros_v1';
-const KEY_CUOTAS = 'app_economia_na_cuotas_v1';
+const KEY_MIEMBROS = 'app_economia_na_miembros_v2';
+const KEY_CUOTAS = 'app_economia_na_cuotas_v2';
 const KEY_MATERIALES = 'app_economia_na_materiales_v1';
-const KEY_OTROS = 'app_economia_na_otros_v1';
+const KEY_OTROS = 'app_economia_na_otros_v2';
 const KEY_MORA = 'app_economia_na_mora_v1';
 const KEY_CATALOGO_ESTATUS = 'app_economia_na_catalogo_estatus_v1';
 const KEY_HORARIOS = 'app_economia_na_horarios_v1';
@@ -33,12 +33,30 @@ export function loadDatabaseState(): DatabaseState {
     const rawInstructores = localStorage.getItem(KEY_INSTRUCTORES);
     const rawGrupos = localStorage.getItem(KEY_GRUPOS);
 
+    const legacyGroupMap: Record<string, string> = {
+      'Introducción a la Filosofía - Mar/Jue 6:30 PM': 'G-01 Introducción a la Filosofía — Martes 18:30 a 20:30',
+      'Filosofía de Oriente y Occidente - Mié 6:00 PM': 'G-02 Filosofía de Oriente y Occidente — Miércoles 18:00 a 20:00',
+      'Ética y Moral Clásica - Sáb 9:00 AM': 'G-03 Ética y Moral Clásica — Sábado 09:00 a 12:00',
+      'Psicología Holística y Simbolismo - Vie 6:30 PM': 'G-04 Psicología Holística y Simbolismo — Viernes 18:30 a 20:30',
+      'Aspirantes de Primer Ingreso - Lun/Mié 7:00 PM': 'G-05 Aspirantes de Primer Ingreso — Lunes 19:00 a 21:00',
+    };
+
     const loadedMiembros: Miembro[] = rawMiembros ? JSON.parse(rawMiembros) : INITIAL_MIEMBROS;
-    // Ensure all members have Estatus populated
-    const migraredMiembros = loadedMiembros.map((m) => ({
-      ...m,
-      Estatus: m.Estatus || (m.Condicion === 'Aspirante' ? '05-Inscrito' : '03-Miembro'),
-    }));
+    // Ensure all members have Estatus populated, 01/02 can have empty group & instructors, and groups map to catalog
+    const migraredMiembros = loadedMiembros.map((m) => {
+      const estatus = m.Estatus || (m.Condicion === 'Aspirante' ? '05-Inscrito' : '03-Miembro');
+      const isExempt = estatus.startsWith('01') || estatus.startsWith('02');
+      let grp = (isExempt && (m.ID_Miembro === 2 || m.ID_Miembro === 4)) ? '' : (m.Grupo_Horario || '');
+      if (grp && legacyGroupMap[grp]) {
+        grp = legacyGroupMap[grp];
+      }
+      return {
+        ...m,
+        Estatus: estatus,
+        Grupo_Horario: grp,
+        Instructores: (isExempt && (m.ID_Miembro === 2 || m.ID_Miembro === 4)) ? '' : (m.Instructores || ''),
+      };
+    });
 
     const loadedCatalogo: string[] = rawEstatus ? JSON.parse(rawEstatus) : CATALOGO_ESTATUS_DEFAULT;
     const loadedHorarios: HorarioClase[] = rawHorarios ? JSON.parse(rawHorarios) : INITIAL_HORARIOS;
@@ -100,8 +118,11 @@ export function resetDatabaseToDefault(): DatabaseState {
   try {
     localStorage.removeItem(KEY_MIEMBROS);
     localStorage.removeItem(KEY_CUOTAS);
+    localStorage.removeItem('app_economia_na_miembros_v1');
+    localStorage.removeItem('app_economia_na_cuotas_v1');
     localStorage.removeItem(KEY_MATERIALES);
     localStorage.removeItem(KEY_OTROS);
+    localStorage.removeItem('app_economia_na_otros_v1');
     localStorage.removeItem(KEY_MORA);
     localStorage.removeItem(KEY_CATALOGO_ESTATUS);
     localStorage.removeItem(KEY_HORARIOS);

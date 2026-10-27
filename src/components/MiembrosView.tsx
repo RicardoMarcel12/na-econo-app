@@ -1,6 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Miembro } from '../types/models';
-import { GRUPOS_HORARIOS_DEFAULT, INSTRUCTORES_DEFAULT, CONCEPTOS_PAGO_DEFAULT, CATALOGO_ESTATUS_DEFAULT } from '../data/seedData';
+import { Miembro, GrupoClase, HorarioClase, Instructor } from '../types/models';
+import {
+  INITIAL_GRUPOS,
+  INITIAL_HORARIOS,
+  INITIAL_INSTRUCTORES,
+  CATALOGO_ESTATUS_DEFAULT,
+} from '../data/seedData';
 import { exportMiembrosCSV, parseCSV, downloadFile } from '../utils/csvEngine';
 import {
   Search,
@@ -26,6 +31,9 @@ import { TableSortHeader, cycleSort, sortRows, SortDirection } from './TableSort
 interface MiembrosViewProps {
   miembros: Miembro[];
   catalogoEstatus?: string[];
+  grupos?: GrupoClase[];
+  horarios?: HorarioClase[];
+  instructores?: Instructor[];
   onAddEstatus?: (newStatus: string) => void;
   onUpdateEstatus?: (oldStatus: string, newStatus: string) => void;
   onDeleteEstatus?: (statusToDelete: string, fallbackStatus?: string) => void;
@@ -45,6 +53,12 @@ export function isEstatusInactivo(estatus?: string): boolean {
 export function isEstatusActivo(estatus?: string): boolean {
   if (!estatus) return true;
   return !estatus.trim().startsWith('9');
+}
+
+export function isEstatusExentoGrupoInstructores(estatus?: string): boolean {
+  if (!estatus) return false;
+  const trimmed = estatus.trim();
+  return trimmed.startsWith('01') || trimmed.startsWith('02');
 }
 
 export interface EstatusBadgeStyle {
@@ -337,6 +351,9 @@ export function getEstatusBadgeStyle(estatus: string): EstatusBadgeStyle {
 export const MiembrosView: React.FC<MiembrosViewProps> = ({
   miembros,
   catalogoEstatus = CATALOGO_ESTATUS_DEFAULT,
+  grupos = INITIAL_GRUPOS,
+  horarios = INITIAL_HORARIOS,
+  instructores = INITIAL_INSTRUCTORES,
   onAddEstatus,
   onUpdateEstatus,
   onDeleteEstatus,
@@ -373,15 +390,48 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
   const [deletingStatusName, setDeletingStatusName] = useState<string | null>(null);
   const [deleteFallbackStatus, setDeleteFallbackStatus] = useState<string>('');
 
+  // Generar lista de Grupos y Horarios dinámicamente desde el Catálogo Oficial de GRUPOS DE CLASE
+  const gruposClaseList = useMemo(() => {
+    const hMap = new Map<number, HorarioClase>();
+    (horarios || INITIAL_HORARIOS).forEach((h) => hMap.set(h.ID_Horario, h));
+
+    const iMap = new Map<number, Instructor>();
+    (instructores || INITIAL_INSTRUCTORES).forEach((i) => iMap.set(i.ID_Instructor, i));
+
+    return (grupos || INITIAL_GRUPOS).map((g) => {
+      const h = hMap.get(g.ID_Horario);
+      const inst = iMap.get(g.ID_Instructor);
+      const horarioText = h ? `${h.Dia} ${h.Hora_Inicio} a ${h.Hora_Fin}` : '';
+      const fullText = horarioText ? `${g.Numero_Grupo} — ${horarioText}` : g.Numero_Grupo;
+      return {
+        id: g.ID_Grupo,
+        numeroGrupo: g.Numero_Grupo,
+        horarioText,
+        fullText,
+        instructorNombre: inst ? inst.Nombre_Completo : '',
+      };
+    });
+  }, [grupos, horarios, instructores]);
+
+  // Lista de nombres de instructores activos desde el catálogo de Instructores
+  const instructoresList = useMemo(() => {
+    if (instructores && instructores.length > 0) {
+      return instructores.map((i) => i.Nombre_Completo);
+    }
+    return INITIAL_INSTRUCTORES.map((i) => i.Nombre_Completo);
+  }, [instructores]);
+
+  const defaultGrupoInit = gruposClaseList[0]?.fullText || '';
+  const defaultInstInit = gruposClaseList[0]?.instructorNombre || instructoresList[0] || '';
+
   const [formData, setFormData] = useState({
     Miembro_Aspirante: '',
     Estatus: catalogoEstatus[2] || '03-Miembro',
     DUI: '',
     Celular: '',
     Correo: '',
-    Grupo_Horario: GRUPOS_HORARIOS_DEFAULT[0],
-    Instructores: INSTRUCTORES_DEFAULT[0],
-    Concepto_Pago: CONCEPTOS_PAGO_DEFAULT[0],
+    Grupo_Horario: defaultGrupoInit,
+    Instructores: defaultInstInit,
     Cuota: 25.00,
   });
   const [formErrors, setFormErrors] = useState<string[]>([]);
@@ -409,15 +459,32 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
         m.Celular.includes(q) ||
         m.Correo.toLowerCase().includes(q) ||
         (m.Estatus && m.Estatus.toLowerCase().includes(q)) ||
-        m.Instructores.toLowerCase().includes(q) ||
-        m.Grupo_Horario.toLowerCase().includes(q);
+        (m.Instructores && m.Instructores.toLowerCase().includes(q)) ||
+        (m.Grupo_Horario && m.Grupo_Horario.toLowerCase().includes(q));
 
       const matchesEstatus = filterEstatus === 'ALL' || (m.Estatus || '03-Miembro') === filterEstatus;
-      const matchesGrupo = filterGrupo === 'ALL' || m.Grupo_Horario === filterGrupo;
+
+      let matchesGrupo = true;
+      if (filterGrupo === 'ALL') {
+        matchesGrupo = true;
+      } else if (filterGrupo === 'EMPTY') {
+        matchesGrupo = !m.Grupo_Horario || !m.Grupo_Horario.trim();
+      } else {
+        const target = filterGrupo.toLowerCase().trim();
+        const memberGrp = (m.Grupo_Horario || '').toLowerCase().trim();
+        const matchedCatalog = gruposClaseList.find((g) => g.fullText === filterGrupo);
+        const numGrupo = matchedCatalog ? matchedCatalog.numeroGrupo.toLowerCase().trim() : '';
+
+        matchesGrupo =
+          memberGrp === target ||
+          (numGrupo && memberGrp.includes(numGrupo)) ||
+          memberGrp.includes(target) ||
+          target.includes(memberGrp);
+      }
 
       return matchesSearch && matchesEstatus && matchesGrupo;
     });
-  }, [miembros, searchTerm, filterEstatus, filterGrupo]);
+  }, [miembros, searchTerm, filterEstatus, filterGrupo, gruposClaseList]);
 
   const sortedMiembros = useMemo(() => {
     return sortRows(filteredMiembros, sortKey, sortDirection, 'ID_Miembro');
@@ -425,15 +492,18 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
 
   const handleOpenAdd = () => {
     setEditingItem(null);
+    const defaultStatus = catalogoEstatus[2] || '03-Miembro';
+    const isExempt = isEstatusExentoGrupoInstructores(defaultStatus);
+    const defaultGrp = gruposClaseList[0]?.fullText || '';
+    const defaultInst = gruposClaseList[0]?.instructorNombre || instructoresList[0] || '';
     setFormData({
       Miembro_Aspirante: '',
-      Estatus: catalogoEstatus[2] || '03-Miembro',
+      Estatus: defaultStatus,
       DUI: '',
       Celular: '',
       Correo: '',
-      Grupo_Horario: GRUPOS_HORARIOS_DEFAULT[0],
-      Instructores: INSTRUCTORES_DEFAULT[0],
-      Concepto_Pago: CONCEPTOS_PAGO_DEFAULT[0],
+      Grupo_Horario: isExempt ? '' : defaultGrp,
+      Instructores: isExempt ? '' : defaultInst,
       Cuota: 25.00,
     });
     setFormErrors([]);
@@ -448,9 +518,8 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
       DUI: item.DUI,
       Celular: item.Celular,
       Correo: item.Correo,
-      Grupo_Horario: item.Grupo_Horario,
-      Instructores: item.Instructores,
-      Concepto_Pago: item.Concepto_Pago,
+      Grupo_Horario: item.Grupo_Horario || '',
+      Instructores: item.Instructores || '',
       Cuota: item.Cuota,
     });
     setFormErrors([]);
@@ -483,15 +552,18 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
     if (!formData.Correo.trim() || !formData.Correo.includes('@')) {
       errors.push('Ingrese un correo electrónico válido.');
     }
-    if (!formData.Grupo_Horario) {
-      errors.push('El grupo y horario es requerido.');
+
+    // Para estatus 01 (J.F.) y 02 (F.F.V.V.) se admite dejar vacíos Grupo y Horario e Instructores
+    const isExempt = isEstatusExentoGrupoInstructores(formData.Estatus);
+    if (!isExempt) {
+      if (!formData.Grupo_Horario || !formData.Grupo_Horario.trim()) {
+        errors.push('El grupo y horario es requerido para miembros en este estatus.');
+      }
+      if (!formData.Instructores || !formData.Instructores.trim()) {
+        errors.push('El instructor o instructores son requeridos para este estatus.');
+      }
     }
-    if (!formData.Instructores.trim()) {
-      errors.push('El instructor o instructores son requeridos.');
-    }
-    if (!formData.Concepto_Pago.trim()) {
-      errors.push('El concepto de pago es requerido.');
-    }
+
     if (!formData.Cuota || formData.Cuota <= 0) {
       errors.push('La cuota debe ser un valor mayor a $0.00.');
     }
@@ -501,6 +573,9 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
       return;
     }
 
+    const finalGrupo = isExempt ? (formData.Grupo_Horario?.trim() || '') : formData.Grupo_Horario.trim();
+    const finalInstructores = isExempt ? (formData.Instructores?.trim() || '') : formData.Instructores.trim();
+
     if (editingItem) {
       onUpdateMiembro({
         ...editingItem,
@@ -509,9 +584,8 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
         DUI: formData.DUI.trim(),
         Celular: formData.Celular.trim(),
         Correo: formData.Correo.trim(),
-        Grupo_Horario: formData.Grupo_Horario,
-        Instructores: formData.Instructores.trim(),
-        Concepto_Pago: formData.Concepto_Pago.trim(),
+        Grupo_Horario: finalGrupo,
+        Instructores: finalInstructores,
         Cuota: Number(formData.Cuota),
       });
       setNotification({ message: `Datos de ${formData.Miembro_Aspirante.trim()} actualizados correctamente.`, type: 'success' });
@@ -522,9 +596,8 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
         DUI: formData.DUI.trim(),
         Celular: formData.Celular.trim(),
         Correo: formData.Correo.trim(),
-        Grupo_Horario: formData.Grupo_Horario,
-        Instructores: formData.Instructores.trim(),
-        Concepto_Pago: formData.Concepto_Pago.trim(),
+        Grupo_Horario: finalGrupo,
+        Instructores: finalInstructores,
         Cuota: Number(formData.Cuota),
         Fecha_Ingreso: new Date().toISOString().split('T')[0],
       });
@@ -635,6 +708,7 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
               ? row[estatusIdx].trim()
               : '03-Miembro';
 
+          const isExempt = estatusVal.startsWith('01') || estatusVal.startsWith('02');
           const item: Miembro = {
             ID_Miembro: idIdx !== -1 && row[idIdx] ? parseInt(row[idIdx], 10) : Date.now() + i,
             Miembro_Aspirante: row[nameIdx],
@@ -642,9 +716,8 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
             DUI: row[duiIdx] || '00000000-0',
             Celular: celIdx !== -1 && row[celIdx] ? row[celIdx] : '7000-0000',
             Correo: corIdx !== -1 && row[corIdx] ? row[corIdx] : 'estudiante@email.com',
-            Grupo_Horario: grupIdx !== -1 && row[grupIdx] ? row[grupIdx] : GRUPOS_HORARIOS_DEFAULT[0],
-            Instructores: instIdx !== -1 && row[instIdx] ? row[instIdx] : INSTRUCTORES_DEFAULT[0],
-            Concepto_Pago: concIdx !== -1 && row[concIdx] ? row[concIdx] : CONCEPTOS_PAGO_DEFAULT[0],
+            Grupo_Horario: grupIdx !== -1 && row[grupIdx] ? row[grupIdx] : (isExempt ? '' : defaultGrupoInit),
+            Instructores: instIdx !== -1 && row[instIdx] ? row[instIdx] : (isExempt ? '' : defaultInstInit),
             Cuota: isNaN(rawCuota) || rawCuota <= 0 ? 25.00 : rawCuota,
             Fecha_Ingreso: new Date().toISOString().split('T')[0],
           };
@@ -813,17 +886,18 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
             onChange={(e) => setFilterGrupo(e.target.value)}
             className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md focus:outline-hidden focus:border-slate-400 bg-white"
           >
-            <option value="ALL">Todos los grupos y horarios</option>
-            {GRUPOS_HORARIOS_DEFAULT.map((g) => (
-              <option key={g} value={g}>
-                {g}
+            <option value="ALL">Todos los grupos de clase ({gruposClaseList.length})</option>
+            <option value="EMPTY">Sin grupo asignado (Estatus 01 y 02)</option>
+            {gruposClaseList.map((g) => (
+              <option key={g.id} value={g.fullText}>
+                {g.fullText}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* High-density Table with Estatus (No Condición) */}
+      {/* High-density Table with Estatus (No Condición ni Concepto) */}
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
@@ -887,13 +961,6 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
                   onSort={handleSort}
                 />
                 <TableSortHeader
-                  columnKey="Concepto_Pago"
-                  label="Concepto Pago"
-                  sortKey={sortKey}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                />
-                <TableSortHeader
                   columnKey="Cuota"
                   label="Cuota"
                   sortKey={sortKey}
@@ -907,7 +974,7 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
             <tbody className="divide-y divide-slate-100">
               {sortedMiembros.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-8 text-center text-slate-400">
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
                     No se encontraron miembros con los criterios seleccionados.
                   </td>
                 </tr>
@@ -941,14 +1008,23 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
                       <td className="py-2.5 px-3 text-slate-600 max-w-[150px] truncate" title={item.Correo}>
                         {item.Correo}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-600 max-w-xs truncate" title={item.Grupo_Horario}>
-                        {item.Grupo_Horario}
+                      <td className="py-2.5 px-3 text-slate-600 max-w-xs truncate" title={item.Grupo_Horario || 'Sin grupo asignado (01/02)'}>
+                        {item.Grupo_Horario ? (
+                          item.Grupo_Horario
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 italic">
+                            — Sin grupo asignado
+                          </span>
+                        )}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
-                        {item.Instructores}
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-600 text-[11px] truncate max-w-[140px]" title={item.Concepto_Pago}>
-                        {item.Concepto_Pago}
+                      <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap" title={item.Instructores || 'Sin instructor asignado (01/02)'}>
+                        {item.Instructores ? (
+                          item.Instructores
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 italic">
+                            — Sin instructor
+                          </span>
+                        )}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 tabular-nums whitespace-nowrap">
                         ${item.Cuota.toFixed(2)}
@@ -1055,7 +1131,16 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
                   </div>
                   <select
                     value={formData.Estatus}
-                    onChange={(e) => setFormData({ ...formData, Estatus: e.target.value })}
+                    onChange={(e) => {
+                      const nextSt = e.target.value;
+                      const isNextExempt = isEstatusExentoGrupoInstructores(nextSt);
+                      setFormData((prev) => ({
+                        ...prev,
+                        Estatus: nextSt,
+                        Grupo_Horario: isNextExempt && prev.Grupo_Horario === defaultGrupoInit ? '' : prev.Grupo_Horario,
+                        Instructores: isNextExempt && prev.Instructores === defaultInstInit ? '' : prev.Instructores,
+                      }));
+                    }}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-hidden bg-white font-medium"
                   >
                     {catalogoEstatus.map((st) => (
@@ -1117,65 +1202,132 @@ export const MiembrosView: React.FC<MiembrosViewProps> = ({
                 </div>
               </div>
 
+              {/* Grupo y Horario (Llenado desde el Catálogo de Grupos de Clase) */}
               <div>
-                <label className="block font-medium text-slate-700 mb-1">
-                  Grupo y Horario *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-medium text-slate-700">
+                    Grupo y Horario {isEstatusExentoGrupoInstructores(formData.Estatus) ? (
+                      <span className="text-emerald-700 font-semibold text-xs">(Opcional para {formData.Estatus})</span>
+                    ) : '*'}
+                  </label>
+                  {isEstatusExentoGrupoInstructores(formData.Estatus) && formData.Grupo_Horario && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, Grupo_Horario: '' })}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                    >
+                      Dejar vacío
+                    </button>
+                  )}
+                </div>
                 <select
                   value={formData.Grupo_Horario}
-                  onChange={(e) => setFormData({ ...formData, Grupo_Horario: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-hidden bg-white"
+                  onChange={(e) => {
+                    const selectedVal = e.target.value;
+                    const matched = gruposClaseList.find(
+                      (g) => g.fullText === selectedVal || g.numeroGrupo === selectedVal
+                    );
+                    setFormData((prev) => ({
+                      ...prev,
+                      Grupo_Horario: selectedVal,
+                      Instructores:
+                        matched && matched.instructorNombre
+                          ? matched.instructorNombre
+                          : prev.Instructores,
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-hidden bg-white text-xs"
                 >
-                  {GRUPOS_HORARIOS_DEFAULT.map((g) => (
-                    <option key={g} value={g}>{g}</option>
+                  {isEstatusExentoGrupoInstructores(formData.Estatus) && (
+                    <option value="">— Sin Grupo y Horario (Opcional para estatus 01/02) —</option>
+                  )}
+                  {!isEstatusExentoGrupoInstructores(formData.Estatus) && !formData.Grupo_Horario && (
+                    <option value="">— Seleccione un Grupo de Clase del Catálogo —</option>
+                  )}
+                  {gruposClaseList.map((g) => (
+                    <option key={g.id} value={g.fullText}>
+                      {g.fullText} {g.instructorNombre ? `· [${g.instructorNombre}]` : ''}
+                    </option>
                   ))}
+                  {formData.Grupo_Horario &&
+                    !gruposClaseList.some(
+                      (g) => g.fullText === formData.Grupo_Horario || g.numeroGrupo === formData.Grupo_Horario
+                    ) && (
+                      <option value={formData.Grupo_Horario}>{formData.Grupo_Horario}</option>
+                    )}
                 </select>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                  <span>
+                    {isEstatusExentoGrupoInstructores(formData.Estatus)
+                      ? 'Los miembros con estatus 01 (J.F.) y 02 (F.F.V.V.) pueden admitirse sin grupo.'
+                      : 'Lista cargada directamente desde el Catálogo de Grupos de Clase.'}
+                  </span>
+                  <span className="text-slate-400 font-mono text-[10px]">
+                    {gruposClaseList.length} grupos en catálogo
+                  </span>
+                </div>
               </div>
 
+              {/* Instructores Asignados (Llenado desde el Catálogo de Instructores) */}
               <div>
-                <label className="block font-medium text-slate-700 mb-1">
-                  Instructores Asignados *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-medium text-slate-700">
+                    Instructores Asignados {isEstatusExentoGrupoInstructores(formData.Estatus) ? (
+                      <span className="text-emerald-700 font-semibold text-xs">(Opcional para {formData.Estatus})</span>
+                    ) : '*'}
+                  </label>
+                  {isEstatusExentoGrupoInstructores(formData.Estatus) && formData.Instructores && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, Instructores: '' })}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                    >
+                      Dejar vacío
+                    </button>
+                  )}
+                </div>
                 <select
                   value={formData.Instructores}
                   onChange={(e) => setFormData({ ...formData, Instructores: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-hidden bg-white"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-hidden bg-white text-xs"
                 >
-                  {INSTRUCTORES_DEFAULT.map((inst) => (
+                  {isEstatusExentoGrupoInstructores(formData.Estatus) && (
+                    <option value="">— Sin Instructor Asignado (Opcional para estatus 01/02) —</option>
+                  )}
+                  {instructoresList.map((inst) => (
                     <option key={inst} value={inst}>{inst}</option>
                   ))}
+                  {formData.Instructores && !instructoresList.includes(formData.Instructores) && (
+                    <option value={formData.Instructores}>{formData.Instructores}</option>
+                  )}
                 </select>
+                {isEstatusExentoGrupoInstructores(formData.Estatus) ? (
+                  <p className="text-[11px] text-emerald-800 mt-1">
+                    No es requerido asignar instructor para miembros con estatus 01 o 02.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Autocompletado con el instructor del grupo seleccionado o personalizable.
+                  </p>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">
-                    Concepto Pago *
-                  </label>
-                  <select
-                    value={formData.Concepto_Pago}
-                    onChange={(e) => setFormData({ ...formData, Concepto_Pago: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-hidden bg-white"
-                  >
-                    {CONCEPTOS_PAGO_DEFAULT.map((cp) => (
-                      <option key={cp} value={cp}>{cp}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">
-                    Cuota Mensual Base ($ USD) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={formData.Cuota}
-                    onChange={(e) => setFormData({ ...formData, Cuota: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-hidden font-mono"
-                  />
-                </div>
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">
+                  Cuota Mensual Base ($ USD) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={formData.Cuota}
+                  onChange={(e) => setFormData({ ...formData, Cuota: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-slate-900 focus:outline-hidden font-mono"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  El concepto de pago se gestiona directamente en el módulo de Cuotas al registrar cada abono.
+                </p>
               </div>
 
               <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
