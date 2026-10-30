@@ -116,10 +116,12 @@ export const CuotaMembresiaSchema = {
     Mes_Pagado: {
       type: "string",
       enum: [
+        "01-ENERO", "02-FEBRERO", "03-MARZO", "04-ABRIL", "05-MAYO", "06-JUNIO",
+        "07-JULIO", "08-AGOSTO", "09-SEPTIEMBRE", "10-OCTUBRE", "11-NOVIEMBRE", "12-DICIEMBRE",
         "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
       ],
-      description: "Mes calendario que cubre la cuota."
+      description: "Mes calendario que cubre la cuota en formato '01-ENERO', '02-FEBRERO', etc."
     },
     Monto_Cuota: {
       type: "number",
@@ -546,7 +548,12 @@ export function validateEntityPayload(schemaType: 'miembros' | 'cuotas' | 'mater
     if (!item.Grupo_Horario || typeof item.Grupo_Horario !== 'string') {
       errors.push('Grupo_Horario es requerido.');
     }
-    const mesesValidos = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    const mesesValidos = [
+      "01-ENERO", "02-FEBRERO", "03-MARZO", "04-ABRIL", "05-MAYO", "06-JUNIO",
+      "07-JULIO", "08-AGOSTO", "09-SEPTIEMBRE", "10-OCTUBRE", "11-NOVIEMBRE", "12-DICIEMBRE",
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
     if (!item.Mes_Pagado || !mesesValidos.includes(item.Mes_Pagado)) {
       errors.push(`Mes_Pagado inválido. Debe ser uno de: ${mesesValidos.join(', ')}.`);
     }

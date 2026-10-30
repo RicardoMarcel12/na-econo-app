@@ -15,7 +15,7 @@ export const DataDictionaryView: React.FC = () => {
         { name: 'Miembro_Aspirante', type: 'String', req: 'Y', desc: 'Nombre completo del estudiante.', rules: 'Sin caracteres especiales.' },
         { name: 'DUI', type: 'String', req: 'N', desc: 'Documento Único de Identidad.', rules: 'Formato estándar de El Salvador (00000000-0).' },
         { name: 'Grupo_Horario', type: 'String', req: 'Y', desc: 'Grupo asignado al miembro.', rules: 'Valores de lista predefinida.' },
-        { name: 'Mes_Pagado', type: 'String', req: 'Y', desc: 'Mes que cubre la cuota.', rules: "Formato: 'Enero', 'Febrero', etc." },
+        { name: 'Mes_Pagado', type: 'String', req: 'Y', desc: 'Mes que cubre la cuota.', rules: "Formato: '01-ENERO', '02-FEBRERO', etc." },
         { name: 'Monto_Cuota', type: 'Decimal', req: 'Y', desc: 'Cantidad abonada en la transacción.', rules: 'Mayor a 0.00.' },
         { name: 'Fecha_Pago', type: 'Date', req: 'Y', desc: 'Fecha en que se realizó el abono.', rules: 'Formato: YYYY-MM-DD.' },
         { name: 'Metodo_Pago', type: 'String', req: 'Y', desc: 'Plataforma o método de pago.', rules: "Ej: 'Págala', 'Transferencia', 'Efectivo'." },

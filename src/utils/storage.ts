@@ -1,4 +1,4 @@
-import { DatabaseState, Miembro, HorarioClase, Instructor, GrupoClase } from '../types/models';
+import { DatabaseState, Miembro, CuotaMembresia, HorarioClase, Instructor, GrupoClase } from '../types/models';
 import {
   INITIAL_MIEMBROS,
   INITIAL_CUOTAS,
@@ -8,11 +8,12 @@ import {
   CATALOGO_ESTATUS_DEFAULT,
   INITIAL_HORARIOS,
   INITIAL_INSTRUCTORES,
-  INITIAL_GRUPOS
+  INITIAL_GRUPOS,
+  MESES_CALENDARIO
 } from '../data/seedData';
 
 const KEY_MIEMBROS = 'app_economia_na_miembros_v2';
-const KEY_CUOTAS = 'app_economia_na_cuotas_v2';
+const KEY_CUOTAS = 'app_economia_na_cuotas_v3';
 const KEY_MATERIALES = 'app_economia_na_materiales_v1';
 const KEY_OTROS = 'app_economia_na_otros_v2';
 const KEY_MORA = 'app_economia_na_mora_v1';
@@ -20,6 +21,22 @@ const KEY_CATALOGO_ESTATUS = 'app_economia_na_catalogo_estatus_v1';
 const KEY_HORARIOS = 'app_economia_na_horarios_v1';
 const KEY_INSTRUCTORES = 'app_economia_na_instructores_v1';
 const KEY_GRUPOS = 'app_economia_na_grupos_v1';
+
+export const normalizeMonthName = (m: string): string => {
+  if (!m) return MESES_CALENDARIO[0];
+  const upper = m.trim().toUpperCase();
+  const direct = MESES_CALENDARIO.find((km) => km === upper);
+  if (direct) return direct;
+  const byName = MESES_CALENDARIO.find(
+    (km) => km.slice(3) === upper || upper.includes(km.slice(3))
+  );
+  if (byName) return byName;
+  const num = parseInt(upper, 10);
+  if (!isNaN(num) && num >= 1 && num <= 12) {
+    return MESES_CALENDARIO[num - 1];
+  }
+  return m;
+};
 
 export function loadDatabaseState(): DatabaseState {
   try {
@@ -63,9 +80,20 @@ export function loadDatabaseState(): DatabaseState {
     const loadedInstructores: Instructor[] = rawInstructores ? JSON.parse(rawInstructores) : INITIAL_INSTRUCTORES;
     const loadedGrupos: GrupoClase[] = rawGrupos ? JSON.parse(rawGrupos) : INITIAL_GRUPOS;
 
+    const loadedCuotasRaw: CuotaMembresia[] = rawCuotas
+      ? JSON.parse(rawCuotas)
+      : (localStorage.getItem('app_economia_na_cuotas_v2')
+          ? JSON.parse(localStorage.getItem('app_economia_na_cuotas_v2')!)
+          : INITIAL_CUOTAS);
+
+    const migratedCuotas = loadedCuotasRaw.map((c) => ({
+      ...c,
+      Mes_Pagado: normalizeMonthName(c.Mes_Pagado),
+    }));
+
     return {
       miembros: migraredMiembros,
-      cuotas: rawCuotas ? JSON.parse(rawCuotas) : INITIAL_CUOTAS,
+      cuotas: migratedCuotas,
       materiales: rawMateriales ? JSON.parse(rawMateriales) : INITIAL_MATERIALES,
       otros: rawOtros ? JSON.parse(rawOtros) : INITIAL_OTROS,
       mora: rawMora ? JSON.parse(rawMora) : INITIAL_MORA,
@@ -118,7 +146,7 @@ export function resetDatabaseToDefault(): DatabaseState {
   try {
     localStorage.removeItem(KEY_MIEMBROS);
     localStorage.removeItem(KEY_CUOTAS);
-    localStorage.removeItem('app_economia_na_miembros_v1');
+    localStorage.removeItem('app_economia_na_cuotas_v2');
     localStorage.removeItem('app_economia_na_cuotas_v1');
     localStorage.removeItem(KEY_MATERIALES);
     localStorage.removeItem(KEY_OTROS);

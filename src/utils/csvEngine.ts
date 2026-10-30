@@ -1,4 +1,5 @@
 import { Miembro, CuotaMembresia, MaterialClase, TransaccionOtro, ReporteMora } from '../types/models';
+import { normalizeMonthName } from './storage';
 
 /**
  * Escapes and formats a field for RFC 4180 CSV compliance
@@ -118,7 +119,7 @@ export function exportCuotasCSV(data: CuotaMembresia[]): string {
       escapeCSVField(item.Miembro_Aspirante),
       escapeCSVField(item.DUI || ''),
       escapeCSVField(item.Grupo_Horario),
-      escapeCSVField(item.Mes_Pagado),
+      escapeCSVField(normalizeMonthName(item.Mes_Pagado)),
       escapeCSVField(item.Monto_Cuota.toFixed(2)),
       escapeCSVField(item.Fecha_Pago),
       escapeCSVField(item.Metodo_Pago),

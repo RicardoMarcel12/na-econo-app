@@ -36,7 +36,24 @@ const getLocalSysdate = (): string => {
   return `${year}-${month}-${day}`;
 };
 
-// Obtiene el nombre del mes en español a partir de una fecha YYYY-MM-DD
+// Normaliza cualquier representación de mes al formato estándar '01-ENERO', '02-FEBRERO'...
+export const normalizeMonthFormat = (val: string): string => {
+  if (!val) return MESES_CALENDARIO[new Date().getMonth()];
+  const clean = val.trim().toUpperCase();
+  const direct = MESES_CALENDARIO.find((m) => m === clean);
+  if (direct) return direct;
+  const byName = MESES_CALENDARIO.find(
+    (m) => m.slice(3) === clean || clean.includes(m.slice(3))
+  );
+  if (byName) return byName;
+  const num = parseInt(clean, 10);
+  if (!isNaN(num) && num >= 1 && num <= 12) {
+    return MESES_CALENDARIO[num - 1];
+  }
+  return val;
+};
+
+// Obtiene el nombre del mes en formato '01-ENERO', '02-FEBRERO'... a partir de una fecha YYYY-MM-DD
 const getMonthNameFromDate = (dateStr: string): string => {
   if (!dateStr) return MESES_CALENDARIO[new Date().getMonth()];
   const parts = dateStr.split('-');
@@ -60,8 +77,8 @@ export interface MonthCalculationResult {
 
 /**
  * Calcula automáticamente el mes a abonar para un miembro seleccionado:
- * - Para miembros con mora: mes más antiguo sin pago
- * - Para miembros solventes: mes siguiente al máximo registrado
+ * - Para miembros con mora: mes más antiguo sin pago (formato 01-ENERO, 02-FEBRERO...)
+ * - Para miembros solventes: mes siguiente al máximo registrado (formato 01-ENERO, 02-FEBRERO...)
  */
 export function calculatePaymentMonthForMember(
   memberName: string,
@@ -86,22 +103,28 @@ export function calculatePaymentMonthForMember(
     (m) => m.Miembro_Aspirante.trim().toLowerCase() === cleanName && m.Saldo_Actual > 0
   );
 
-  // Cuotas pagadas del miembro
+  // Cuotas pagadas del miembro (normalizadas a formato 01-ENERO, 02-FEBRERO...)
   const memberCuotas = cuotas.filter(
     (c) => c.Miembro_Aspirante.trim().toLowerCase() === cleanName
   );
-  const paidMonthsSet = new Set(memberCuotas.map((c) => c.Mes_Pagado.trim().toLowerCase()));
+  const paidMonthsSet = new Set(
+    memberCuotas.map((c) => normalizeMonthFormat(c.Mes_Pagado).toLowerCase())
+  );
 
   if (moraRecord && (moraRecord.Saldo_Actual > 0 || moraRecord.Meses_En_Mora > 0)) {
     // Miembro con mora: calcular el mes más antiguo sin pago
     let candidateOldestMonth: string | null = null;
 
     if (moraRecord.Detalle_Meses) {
-      // Analizar tokens en Detalle_Meses (ej. "Enero, Febrero" o "Diciembre 2025, Enero, Febrero")
+      // Analizar tokens en Detalle_Meses (ej. "01-ENERO, 02-FEBRERO" o "Enero, Febrero")
       const tokens = moraRecord.Detalle_Meses.split(',').map((t) => t.trim());
       for (const token of tokens) {
+        const upToken = token.toUpperCase();
         const matched = MESES_CALENDARIO.find((m) =>
-          token.toLowerCase().includes(m.toLowerCase())
+          m === upToken ||
+          upToken.includes(m) ||
+          upToken.includes(m.slice(3)) ||
+          m.includes(upToken)
         );
         if (matched && !paidMonthsSet.has(matched.toLowerCase())) {
           candidateOldestMonth = matched;
@@ -134,7 +157,10 @@ export function calculatePaymentMonthForMember(
   // 2. Miembro solvente (al día o sin mora activa)
   // Encontrar el mes máximo registrado en sus cuotas
   const monthIndices = memberCuotas
-    .map((c) => MESES_CALENDARIO.findIndex((m) => m.toLowerCase() === c.Mes_Pagado.trim().toLowerCase()))
+    .map((c) => {
+      const norm = normalizeMonthFormat(c.Mes_Pagado).toLowerCase();
+      return MESES_CALENDARIO.findIndex((m) => m.toLowerCase() === norm);
+    })
     .filter((idx) => idx >= 0);
 
   if (monthIndices.length > 0) {
@@ -304,7 +330,10 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
         (item.Referencia && item.Referencia.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesGrupo = filterGrupo === 'ALL' || item.Grupo_Horario === filterGrupo;
-      const matchesMes = filterMes === 'ALL' || item.Mes_Pagado === filterMes;
+      const matchesMes =
+        filterMes === 'ALL' ||
+        item.Mes_Pagado === filterMes ||
+        normalizeMonthFormat(item.Mes_Pagado) === filterMes;
       const matchesMetodo = filterMetodo === 'ALL' || item.Metodo_Pago === filterMetodo;
       const matchesMora = !onlyMoraFilter || moraMap.has(item.Miembro_Aspirante.trim().toLowerCase());
 
@@ -327,9 +356,10 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
   // Miembros activos que ya tienen registrado al menos un pago en el mes filtrado
   const activeMembersPaidInMonth = useMemo(() => {
     if (filterMes === 'ALL') return [];
+    const targetMonthNormalized = normalizeMonthFormat(filterMes).toLowerCase();
     const paidNames = new Set(
       cuotas
-        .filter((c) => c.Mes_Pagado.toLowerCase() === filterMes.toLowerCase())
+        .filter((c) => normalizeMonthFormat(c.Mes_Pagado).toLowerCase() === targetMonthNormalized)
         .map((c) => c.Miembro_Aspirante.trim().toLowerCase())
     );
     return activeMembers.filter((m) => paidNames.has(m.Miembro_Aspirante.trim().toLowerCase()));
@@ -430,7 +460,7 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
     const derivedGrupo = matched?.Grupo_Horario || editingItem?.Grupo_Horario || GRUPOS_HORARIOS_DEFAULT[0];
     // En nuevo pago, el mes no es seleccionable sino que se calcula automáticamente:
     // mes más antiguo sin pago para miembros con mora, o mes siguiente al máximo registrado para solventes
-    const derivedMes = editingItem ? editingItem.Mes_Pagado : computedMonthInfo.month;
+    const derivedMes = editingItem ? normalizeMonthFormat(editingItem.Mes_Pagado) : computedMonthInfo.month;
 
     if (editingItem) {
       onUpdateCuota({
@@ -507,7 +537,7 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
             Miembro_Aspirante: row[nameIdx] || 'Estudiante',
             DUI: duiIdx !== -1 ? row[duiIdx] : undefined,
             Grupo_Horario: grupoIdx !== -1 && row[grupoIdx] ? row[grupoIdx] : GRUPOS_HORARIOS_DEFAULT[0],
-            Mes_Pagado: mesIdx !== -1 && row[mesIdx] ? row[mesIdx] : 'Febrero',
+            Mes_Pagado: mesIdx !== -1 && row[mesIdx] ? normalizeMonthFormat(row[mesIdx]) : MESES_CALENDARIO[new Date().getMonth()],
             Monto_Cuota: isNaN(monto) || monto <= 0 ? 25.0 : monto,
             Fecha_Pago: fechaIdx !== -1 && row[fechaIdx] ? row[fechaIdx] : new Date().toISOString().split('T')[0],
             Metodo_Pago: metodoIdx !== -1 && row[metodoIdx] ? row[metodoIdx] : 'Págala',
@@ -837,8 +867,8 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
                       <td className="py-2.5 px-3 text-slate-600 max-w-xs truncate" title={item.Grupo_Horario}>
                         {item.Grupo_Horario}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-700">
-                        {item.Mes_Pagado}
+                      <td className="py-2.5 px-3 text-slate-800 font-mono text-xs font-medium">
+                        {normalizeMonthFormat(item.Mes_Pagado)}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 tabular-nums">
                         ${item.Monto_Cuota.toFixed(2)}
@@ -1240,7 +1270,7 @@ export const CuotasView: React.FC<CuotasViewProps> = ({
                 <div className="flex items-center justify-between p-2.5 bg-white border border-slate-300 rounded-md shadow-2xs">
                   <div className="flex items-center gap-2">
                     <span className="text-base font-extrabold text-slate-900 font-sans tracking-tight">
-                      {editingItem ? editingItem.Mes_Pagado : computedMonthInfo.month}
+                      {editingItem ? normalizeMonthFormat(editingItem.Mes_Pagado) : computedMonthInfo.month}
                     </span>
                     {editingItem ? (
                       <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200 font-medium">
