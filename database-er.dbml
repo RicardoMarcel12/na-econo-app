@@ -1,37 +1,51 @@
 // ==========================================
 // Base de Datos: Nueva Acrópolis - San Salvador
 // Generado desde contratos JSON Frontend
-// v2: catálogos normalizados (estatus, horarios,
-//     instructores, grupos) y archivos adjuntos
+// v4: id surrogate interno (oculto) en todas
+//     las entidades + catálogo de estatus v2
 // ==========================================
+
+// Convención: cada tabla tiene una columna `id`
+// surrogate, autoincremental y de uso exclusivo de
+// la base de datos. No se expone en contratos JSON,
+// CSV ni en la API; las llaves de negocio (id_*)
+// permanecen como columnas UNIQUE para trazabilidad.
 
 // ==========================================
 // Catálogos
 // ==========================================
 
 Table catalogo_estatus {
-  codigo varchar(50) [primary key, note: "Ej: 01-J.F., 02-F.F.V.V., 03-Miembro, 05-Inscrito, 99-Retirado"]
+  id bigint [primary key, increment, note: "ID surrogate interno (oculto en API/CSV)"]
+  codigo varchar(2) [not null, unique, note: "Código numérico de dos dígitos: 01, 02, 03, 11, 98, 99"]
+  nombre varchar(150) [not null, unique, note: "Denominación completa: 01-J.F., 02-F.F.V.V., 03-Miembro, 99-Retirado"]
+  es_activo boolean [not null, note: "Falso si el código inicia con 9 (inactivo); verdadero en los demás"]
+  color_familia varchar(50) [note: "Violeta (01), Índigo/Azul/Cian (02-06), Verde (10-19), Rojo (90-99)"]
 }
 
 Table horarios {
-  id_horario integer [primary key, increment, note: "Identificador único del horario"]
+  id bigint [primary key, increment, note: "ID surrogate interno (oculto en API/CSV)"]
+  id_horario integer [not null, unique, note: "Identificador de negocio (contrato HorarioClase)"]
   dia varchar(10) [not null, note: "Lunes, Martes, Miércoles, Jueves, Viernes, Sábado"]
   hora_inicio time [not null, note: "Hora de inicio HH:mm"]
   hora_fin time [not null, note: "Hora de fin HH:mm"]
 }
 
 Table instructores {
-  id_instructor integer [primary key, increment, note: "Identificador único del instructor"]
+  id bigint [primary key, increment, note: "ID surrogate interno (oculto en API/CSV)"]
+  id_instructor integer [not null, unique, note: "Identificador de negocio (contrato Instructor)"]
   nombre_completo varchar(150) [not null, note: "Nombre completo del instructor"]
-  estatus varchar(50) [not null, note: "FK al catálogo de estatus (mismo dominio que miembros.estatus)"]
+  id_estatus varchar(2) [not null, note: "FK a catalogo_estatus.codigo"]
+  estatus varchar(150) [not null, note: "LEGACY (compatibilidad JSON/CSV): usar id_estatus"]
 
   indexes {
-    estatus [name: "idx_instructor_estatus"]
+    id_estatus [name: "idx_instructor_estatus"]
   }
 }
 
 Table grupos {
-  id_grupo integer [primary key, increment, note: "Identificador único del grupo"]
+  id bigint [primary key, increment, note: "ID surrogate interno (oculto en API/CSV)"]
+  id_grupo integer [not null, unique, note: "Identificador de negocio (contrato GrupoClase)"]
   numero_grupo varchar(150) [not null, note: "Ej: G-01 Introducción a la Filosofía"]
   id_horario integer [not null, note: "FK a horarios"]
   id_instructor integer [not null, note: "FK a instructores"]
@@ -47,9 +61,10 @@ Table grupos {
 // ==========================================
 
 Table miembros {
-  id_miembro integer [primary key, increment, note: "Identificador único autoincremental"]
+  id bigint [primary key, increment, note: "ID surrogate interno (oculto en API/CSV)"]
+  id_miembro integer [not null, unique, note: "Identificador de negocio (contrato Miembro)"]
   miembro_aspirante varchar(150) [not null, note: "Nombre completo del estudiante o miembro"]
-  id_estatus varchar(50) [not null, note: "FK al catálogo de estatus institucional"]
+  id_estatus varchar(2) [not null, note: "FK a catalogo_estatus.codigo"]
   estatus varchar(100) [not null, note: "LEGACY (compatibilidad CSV): usar id_estatus"]
   dui varchar(10) [not null, unique, note: "DUI salvadoreño formato 00000000-0"]
   celular varchar(20) [not null, note: "Teléfono celular o WhatsApp"]
@@ -72,7 +87,8 @@ Table miembros {
 }
 
 Table cuotas_membresia {
-  id_registro integer [primary key, increment, note: "Identificador único del pago"]
+  id bigint [primary key, increment, note: "ID surrogate interno (oculto en API/CSV)"]
+  id_registro integer [not null, unique, note: "Identificador de negocio (contrato CuotaMembresia)"]
   miembro_id integer [not null, note: "Relación con la tabla miembros"]
   dui varchar(10) [note: "DUI del miembro al momento del pago (dato histórico)"]
   grupo_horario varchar(150) [not null, note: "Grupo de estudio al momento del pago (snapshot histórico)"]
@@ -88,7 +104,8 @@ Table cuotas_membresia {
 }
 
 Table materiales_clase {
-  id_material_log integer [primary key, increment, note: "Identificador del registro de material"]
+  id bigint [primary key, increment, note: "ID surrogate interno (oculto en API/CSV)"]
+  id_material_log integer [not null, unique, note: "Identificador de negocio (contrato MaterialClase)"]
   miembro_id integer [not null, note: "Relación con la tabla miembros"]
   materia_articulo varchar(200) [not null, note: "Libro, manual o artículo de estudio"]
   monto decimal(10,2) [not null, note: "Costo del material"]
@@ -98,7 +115,8 @@ Table materiales_clase {
 }
 
 Table transacciones_otros {
-  id_transaccion integer [primary key, increment, note: "Identificador de transacción miscelánea"]
+  id bigint [primary key, increment, note: "ID surrogate interno (oculto en API/CSV)"]
+  id_transaccion integer [not null, unique, note: "Identificador de negocio (contrato TransaccionOtro)"]
   fecha date [not null, note: "Fecha del evento YYYY-MM-DD"]
   concepto varchar(250) [not null, note: "Motivo del ingreso o gasto"]
   monto decimal(12,2) [not null, note: "Positivo ingresos, negativo egresos"]
@@ -109,7 +127,8 @@ Table transacciones_otros {
 }
 
 Table archivos_adjuntos {
-  id varchar(36) [primary key, note: "UUID del archivo"]
+  id bigint [primary key, increment, note: "ID surrogate interno (oculto en API/CSV)"]
+  uuid varchar(36) [not null, unique, note: "Identificador público del archivo (ArchivoAdjunto.id)"]
   transaccion_id integer [not null, note: "FK a transacciones_otros"]
   nombre varchar(255) [not null, note: "Nombre original del archivo"]
   tamano bigint [not null, note: "Tamaño en bytes"]
@@ -123,12 +142,13 @@ Table archivos_adjuntos {
 }
 
 Table reporte_mora {
-  id_mora integer [primary key, increment, note: "Identificador del reporte de mora"]
+  id bigint [primary key, increment, note: "ID surrogate interno (oculto en API/CSV)"]
+  id_mora integer [not null, unique, note: "Identificador de negocio (contrato ReporteMora)"]
   miembro_id integer [not null, note: "Relación con la tabla miembros"]
   saldo_anterior decimal(10,2) [default: 0, note: "Deuda acumulada anterior"]
   saldo_actual decimal(10,2) [not null, note: "Deuda total consolidada"]
   meses_en_mora integer [not null, note: "Cantidad de meses sin pago"]
-  detalle_meses text [not null, note: "Meses específicos adeudados"]
+  detalle_meses text [not null, note: "Formato estandarizado: 01-ENERO, 02-FEBRERO"]
   ultimo_contacto date [note: "Fecha del último intento de cobro"]
   estado_gestion varchar(50) [not null, note: "Notificado / En Negociación / Sin Respuesta"]
 }
@@ -138,7 +158,7 @@ Table reporte_mora {
 // ==========================================
 
 // Catálogos
-Ref: instructores.estatus > catalogo_estatus.codigo [delete: restrict]
+Ref: instructores.id_estatus > catalogo_estatus.codigo [delete: restrict]
 Ref: grupos.id_horario > horarios.id_horario [delete: restrict]
 Ref: grupos.id_instructor > instructores.id_instructor [delete: restrict]
 
