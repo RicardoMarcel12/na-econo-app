@@ -1,0 +1,155 @@
+// ==========================================
+// Base de Datos: Nueva Acrópolis - San Salvador
+// Generado desde contratos JSON Frontend
+// v2: catálogos normalizados (estatus, horarios,
+//     instructores, grupos) y archivos adjuntos
+// ==========================================
+
+// ==========================================
+// Catálogos
+// ==========================================
+
+Table catalogo_estatus {
+  codigo varchar(50) [primary key, note: "Ej: 01-J.F., 02-F.F.V.V., 03-Miembro, 05-Inscrito, 99-Retirado"]
+}
+
+Table horarios {
+  id_horario integer [primary key, increment, note: "Identificador único del horario"]
+  dia varchar(10) [not null, note: "Lunes, Martes, Miércoles, Jueves, Viernes, Sábado"]
+  hora_inicio time [not null, note: "Hora de inicio HH:mm"]
+  hora_fin time [not null, note: "Hora de fin HH:mm"]
+}
+
+Table instructores {
+  id_instructor integer [primary key, increment, note: "Identificador único del instructor"]
+  nombre_completo varchar(150) [not null, note: "Nombre completo del instructor"]
+  estatus varchar(50) [not null, note: "FK al catálogo de estatus (mismo dominio que miembros.estatus)"]
+
+  indexes {
+    estatus [name: "idx_instructor_estatus"]
+  }
+}
+
+Table grupos {
+  id_grupo integer [primary key, increment, note: "Identificador único del grupo"]
+  numero_grupo varchar(150) [not null, note: "Ej: G-01 Introducción a la Filosofía"]
+  id_horario integer [not null, note: "FK a horarios"]
+  id_instructor integer [not null, note: "FK a instructores"]
+
+  indexes {
+    id_horario [name: "idx_grupo_horario"]
+    id_instructor [name: "idx_grupo_instructor"]
+  }
+}
+
+// ==========================================
+// Registros operativos
+// ==========================================
+
+Table miembros {
+  id_miembro integer [primary key, increment, note: "Identificador único autoincremental"]
+  miembro_aspirante varchar(150) [not null, note: "Nombre completo del estudiante o miembro"]
+  id_estatus varchar(50) [not null, note: "FK al catálogo de estatus institucional"]
+  estatus varchar(100) [not null, note: "LEGACY (compatibilidad CSV): usar id_estatus"]
+  dui varchar(10) [not null, unique, note: "DUI salvadoreño formato 00000000-0"]
+  celular varchar(20) [not null, note: "Teléfono celular o WhatsApp"]
+  correo varchar(255) [not null, note: "Correo institucional o personal"]
+  grupo_horario varchar(150) [note: "LEGACY (compatibilidad CSV): usar id_grupo"]
+  instructores varchar(250) [note: "LEGACY (compatibilidad CSV): usar id_instructor"]
+  concepto_pago varchar(150) [note: "Concepto predeterminado ej. Cuota Mensual"]
+  cuota decimal(10,2) [not null, note: "Monto base mensual en USD"]
+  fecha_ingreso date [note: "Fecha de ingreso YYYY-MM-DD"]
+  condicion varchar(30) [note: "LEGACY (opcional): campo anterior sustituido por el estatus"]
+  id_grupo integer [note: "FK a grupos; nulo para estatus 01 y 02"]
+  id_instructor integer [note: "FK a instructores; nulo para estatus 01 y 02"]
+
+  indexes {
+    dui [name: "idx_miembro_dui"]
+    id_estatus [name: "idx_miembro_estatus"]
+    id_grupo [name: "idx_miembro_grupo"]
+    id_instructor [name: "idx_miembro_instructor"]
+  }
+}
+
+Table cuotas_membresia {
+  id_registro integer [primary key, increment, note: "Identificador único del pago"]
+  miembro_id integer [not null, note: "Relación con la tabla miembros"]
+  dui varchar(10) [note: "DUI del miembro al momento del pago (dato histórico)"]
+  grupo_horario varchar(150) [not null, note: "Grupo de estudio al momento del pago (snapshot histórico)"]
+  mes_pagado varchar(30) [not null, note: "Ej: 01-ENERO o Enero"]
+  monto_cuota decimal(10,2) [not null, note: "Cantidad abonada (> 0.00)"]
+  fecha_pago date [not null, note: "Fecha del abono YYYY-MM-DD"]
+  metodo_pago varchar(50) [not null, note: "Págala, Transferencia, Efectivo, Tarjeta, etc."]
+  referencia varchar(100) [note: "Número de comprobante o ticket"]
+
+  indexes {
+    dui [name: "idx_cuota_dui"]
+  }
+}
+
+Table materiales_clase {
+  id_material_log integer [primary key, increment, note: "Identificador del registro de material"]
+  miembro_id integer [not null, note: "Relación con la tabla miembros"]
+  materia_articulo varchar(200) [not null, note: "Libro, manual o artículo de estudio"]
+  monto decimal(10,2) [not null, note: "Costo del material"]
+  fecha_solicitud date [not null, note: "Fecha de requerimiento YYYY-MM-DD"]
+  estado_pago varchar(30) [not null, note: "Pagado / Pendiente"]
+  estado_entrega varchar(30) [not null, note: "Entregado / En Tránsito / Pendiente"]
+}
+
+Table transacciones_otros {
+  id_transaccion integer [primary key, increment, note: "Identificador de transacción miscelánea"]
+  fecha date [not null, note: "Fecha del evento YYYY-MM-DD"]
+  concepto varchar(250) [not null, note: "Motivo del ingreso o gasto"]
+  monto decimal(12,2) [not null, note: "Positivo ingresos, negativo egresos"]
+  contacto varchar(150) [note: "Persona, proveedor o responsable"]
+  estado varchar(30) [not null, note: "Completado / Pendiente / Anulado"]
+  accion_pendiente varchar(250) [note: "Siguiente paso administrativo"]
+  archivos_json text [note: "LEGACY: usar la tabla archivos_adjuntos"]
+}
+
+Table archivos_adjuntos {
+  id varchar(36) [primary key, note: "UUID del archivo"]
+  transaccion_id integer [not null, note: "FK a transacciones_otros"]
+  nombre varchar(255) [not null, note: "Nombre original del archivo"]
+  tamano bigint [not null, note: "Tamaño en bytes"]
+  tipo varchar(100) [not null, note: "MIME type, ej. application/pdf, image/jpeg"]
+  data_url text [note: "Data URL Base64 para visualización y descarga"]
+  fecha_subida timestamp [not null, note: "Fecha de subida (ISO 8601)"]
+
+  indexes {
+    transaccion_id [name: "idx_archivo_transaccion"]
+  }
+}
+
+Table reporte_mora {
+  id_mora integer [primary key, increment, note: "Identificador del reporte de mora"]
+  miembro_id integer [not null, note: "Relación con la tabla miembros"]
+  saldo_anterior decimal(10,2) [default: 0, note: "Deuda acumulada anterior"]
+  saldo_actual decimal(10,2) [not null, note: "Deuda total consolidada"]
+  meses_en_mora integer [not null, note: "Cantidad de meses sin pago"]
+  detalle_meses text [not null, note: "Meses específicos adeudados"]
+  ultimo_contacto date [note: "Fecha del último intento de cobro"]
+  estado_gestion varchar(50) [not null, note: "Notificado / En Negociación / Sin Respuesta"]
+}
+
+// ==========================================
+// Relaciones (Foreign Keys)
+// ==========================================
+
+// Catálogos
+Ref: instructores.estatus > catalogo_estatus.codigo [delete: restrict]
+Ref: grupos.id_horario > horarios.id_horario [delete: restrict]
+Ref: grupos.id_instructor > instructores.id_instructor [delete: restrict]
+
+// Miembros
+Ref: miembros.id_estatus > catalogo_estatus.codigo [delete: restrict]
+Ref: miembros.id_grupo > grupos.id_grupo [delete: set null]
+Ref: miembros.id_instructor > instructores.id_instructor [delete: set null]
+
+// Registros operativos
+Ref: cuotas_membresia.miembro_id > miembros.id_miembro [delete: cascade]
+Ref: cuotas_membresia.dui > miembros.dui [delete: set null]
+Ref: materiales_clase.miembro_id > miembros.id_miembro [delete: cascade]
+Ref: reporte_mora.miembro_id > miembros.id_miembro [delete: cascade]
+Ref: archivos_adjuntos.transaccion_id > transacciones_otros.id_transaccion [delete: cascade]
