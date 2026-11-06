@@ -6,37 +6,48 @@ import {
   MaterialClaseSchema,
   TransaccionOtroSchema,
   ReporteMoraSchema,
+  HorarioClaseSchema,
+  InstructorSchema,
+  GrupoClaseSchema,
+  CatalogoEstatusSchema,
   CentralDatabaseSyncPayloadSchema,
   CENTRAL_API_ENDPOINTS,
-  validateEntityPayload
+  validateEntityPayload,
+  SchemaValidationType
 } from '../contracts/jsonContracts';
 import { downloadFile } from '../utils/csvEngine';
-import { Code2, Server, CheckCircle2, AlertCircle, Copy, Download, Play, FileJson } from 'lucide-react';
+import { Code2, Server, CheckCircle2, AlertCircle, Copy, Download, Play, FileJson, Layers, Clock, UserCheck, FolderKanban, Tag } from 'lucide-react';
 
 interface ContractsViewProps {
   data: DatabaseState;
 }
 
+export type ContractSchemaKey =
+  | 'grupos'
+  | 'horarios'
+  | 'instructores'
+  | 'estatus'
+  | 'miembros'
+  | 'cuotas'
+  | 'materiales'
+  | 'otros'
+  | 'mora'
+  | 'full_sync';
+
 export const ContractsView: React.FC<ContractsViewProps> = ({ data }) => {
   const [activeTab, setActiveTab] = useState<'schemas' | 'endpoints' | 'validator' | 'export_sync'>('schemas');
-  const [selectedSchema, setSelectedSchema] = useState<'miembros' | 'cuotas' | 'materiales' | 'otros' | 'mora' | 'full_sync'>('miembros');
+  const [selectedSchema, setSelectedSchema] = useState<ContractSchemaKey>('grupos');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Live validator state
-  const [validatorType, setValidatorType] = useState<'miembros' | 'cuotas' | 'materiales' | 'otros' | 'mora'>('miembros');
+  const [validatorType, setValidatorType] = useState<SchemaValidationType>('grupos');
   const [validatorInput, setValidatorInput] = useState<string>(
     JSON.stringify(
       {
-        ID_Miembro: 1,
-        Miembro_Aspirante: "Alejandro Mendoza Ortiz",
-        Condicion: "Miembro",
-        DUI: "03456789-2",
-        Celular: "7845-1234",
-        Correo: "alejandro.mendoza@email.com",
-        Grupo_Horario: "Introducción a la Filosofía - Mar/Jue 6:30 PM",
-        Instructores: "Prof. Roberto Valencia",
-        Concepto_Pago: "Cuota Mensual de Membresía",
-        Cuota: 25.0
+        ID_Grupo: 1,
+        Numero_Grupo: "G-01 Introducción a la Filosofía",
+        ID_Horario: 1,
+        ID_Instructor: 1
       },
       null,
       2
@@ -46,6 +57,10 @@ export const ContractsView: React.FC<ContractsViewProps> = ({ data }) => {
 
   const getSchemaObject = () => {
     switch (selectedSchema) {
+      case 'grupos': return GrupoClaseSchema;
+      case 'horarios': return HorarioClaseSchema;
+      case 'instructores': return InstructorSchema;
+      case 'estatus': return CatalogoEstatusSchema;
       case 'miembros': return MiembroSchema;
       case 'cuotas': return CuotaMembresiaSchema;
       case 'materiales': return MaterialClaseSchema;
@@ -83,14 +98,18 @@ export const ContractsView: React.FC<ContractsViewProps> = ({ data }) => {
 
   const getFullCentralSyncPayload = () => {
     return {
-      version: "1.0.0",
+      version: "2.0.0",
       sede: "Nueva Acrópolis - San Salvador",
       fecha_sincronizacion: new Date().toISOString(),
       miembros: data.miembros,
       cuotas: data.cuotas,
       materiales: data.materiales,
       otros: data.otros,
-      mora: data.mora
+      mora: data.mora,
+      catalogoEstatus: data.catalogoEstatus || [],
+      horarios: data.horarios || [],
+      instructores: data.instructores || [],
+      grupos: data.grupos || []
     };
   };
 
@@ -169,68 +188,120 @@ export const ContractsView: React.FC<ContractsViewProps> = ({ data }) => {
       {/* Tab 1: Schemas */}
       {activeTab === 'schemas' && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-semibold text-slate-700 mr-2">Contrato de Entidad:</span>
-            <button
-              onClick={() => setSelectedSchema('miembros')}
-              className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer ${
-                selectedSchema === 'miembros'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              0. Miembro (Maestro)
-            </button>
-            <button
-              onClick={() => setSelectedSchema('cuotas')}
-              className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer ${
-                selectedSchema === 'cuotas'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              1. CuotaMembresia
-            </button>
-            <button
-              onClick={() => setSelectedSchema('materiales')}
-              className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer ${
-                selectedSchema === 'materiales'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              2. MaterialClase
-            </button>
-            <button
-              onClick={() => setSelectedSchema('otros')}
-              className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer ${
-                selectedSchema === 'otros'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              3. TransaccionOtro
-            </button>
-            <button
-              onClick={() => setSelectedSchema('mora')}
-              className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer ${
-                selectedSchema === 'mora'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              4. ReporteMora
-            </button>
-            <button
-              onClick={() => setSelectedSchema('full_sync')}
-              className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer ${
-                selectedSchema === 'full_sync'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              5. CentralDatabaseSyncPayload
-            </button>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="font-semibold text-slate-700 mr-2 flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5 text-blue-600" />
+                <span>Catálogos:</span>
+              </span>
+              <button
+                onClick={() => setSelectedSchema('grupos')}
+                className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer transition-colors ${
+                  selectedSchema === 'grupos'
+                    ? 'border-blue-900 bg-blue-900 text-white shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                Grupos de Clase
+              </button>
+              <button
+                onClick={() => setSelectedSchema('horarios')}
+                className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer transition-colors ${
+                  selectedSchema === 'horarios'
+                    ? 'border-blue-900 bg-blue-900 text-white shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                Horarios de Clase
+              </button>
+              <button
+                onClick={() => setSelectedSchema('instructores')}
+                className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer transition-colors ${
+                  selectedSchema === 'instructores'
+                    ? 'border-blue-900 bg-blue-900 text-white shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                Instructores
+              </button>
+              <button
+                onClick={() => setSelectedSchema('estatus')}
+                className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer transition-colors ${
+                  selectedSchema === 'estatus'
+                    ? 'border-blue-900 bg-blue-900 text-white shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                Catálogo de Estatus
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1 border-t border-slate-100">
+              <span className="font-semibold text-slate-700 mr-2 flex items-center gap-1">
+                <Server className="w-3.5 h-3.5 text-slate-600" />
+                <span>Módulos Principales:</span>
+              </span>
+              <button
+                onClick={() => setSelectedSchema('miembros')}
+                className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer transition-colors ${
+                  selectedSchema === 'miembros'
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                0. Miembros (Maestro)
+              </button>
+              <button
+                onClick={() => setSelectedSchema('cuotas')}
+                className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer transition-colors ${
+                  selectedSchema === 'cuotas'
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                1. Cuotas de Membresía
+              </button>
+              <button
+                onClick={() => setSelectedSchema('materiales')}
+                className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer transition-colors ${
+                  selectedSchema === 'materiales'
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                2. Materiales y Libros
+              </button>
+              <button
+                onClick={() => setSelectedSchema('otros')}
+                className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer transition-colors ${
+                  selectedSchema === 'otros'
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                3. Otros (Transacciones)
+              </button>
+              <button
+                onClick={() => setSelectedSchema('mora')}
+                className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer transition-colors ${
+                  selectedSchema === 'mora'
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-2xs'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                4. Reporte de Mora
+              </button>
+              <button
+                onClick={() => setSelectedSchema('full_sync')}
+                className={`px-3 py-1.5 rounded-md border font-medium cursor-pointer transition-colors ${
+                  selectedSchema === 'full_sync'
+                    ? 'border-emerald-800 bg-emerald-800 text-white shadow-2xs'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                }`}
+              >
+                5. Sincronización Completa
+              </button>
+            </div>
           </div>
 
           <div className="bg-slate-900 text-slate-100 rounded-lg p-4 font-mono text-xs overflow-hidden border border-slate-800">
@@ -326,18 +397,59 @@ export const ContractsView: React.FC<ContractsViewProps> = ({ data }) => {
               </p>
             </div>
 
-            <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-3 text-xs flex-wrap">
               <span className="font-medium text-slate-700">Validar contra:</span>
               <select
                 value={validatorType}
-                onChange={(e) => setValidatorType(e.target.value as any)}
+                onChange={(e) => {
+                  const val = e.target.value as SchemaValidationType;
+                  setValidatorType(val);
+                  setValidationResult(null);
+                  switch (val) {
+                    case 'grupos':
+                      setValidatorInput(JSON.stringify({ ID_Grupo: 1, Numero_Grupo: "G-01 Introducción a la Filosofía", ID_Horario: 1, ID_Instructor: 1 }, null, 2));
+                      break;
+                    case 'horarios':
+                      setValidatorInput(JSON.stringify({ ID_Horario: 1, Dia: "Martes", Hora_Inicio: "18:30", Hora_Fin: "20:30" }, null, 2));
+                      break;
+                    case 'instructores':
+                      setValidatorInput(JSON.stringify({ ID_Instructor: 1, Nombre_Completo: "Prof. Roberto Valencia", Estatus: "01-J.F." }, null, 2));
+                      break;
+                    case 'estatus':
+                      setValidatorInput(JSON.stringify({ codigo: "01", nombre: "01-J.F.", es_activo: true }, null, 2));
+                      break;
+                    case 'miembros':
+                      setValidatorInput(JSON.stringify({ ID_Miembro: 1, Miembro_Aspirante: "Alejandro Mendoza Ortiz", DUI: "03456789-2", Celular: "7845-1234", Correo: "alejandro.mendoza@email.com", Grupo_Horario: "G-01 Introducción a la Filosofía", Instructores: "Prof. Roberto Valencia", Cuota: 25.0, Estatus: "03-Miembro" }, null, 2));
+                      break;
+                    case 'cuotas':
+                      setValidatorInput(JSON.stringify({ ID_Registro: 101, Miembro_Aspirante: "Alejandro Mendoza Ortiz", DUI: "03456789-2", Grupo_Horario: "G-01 Introducción a la Filosofía", Mes_Pagado: "10-OCTUBRE", Monto_Cuota: 25.0, Fecha_Pago: "2026-10-28", Metodo_Pago: "Págala" }, null, 2));
+                      break;
+                    case 'materiales':
+                      setValidatorInput(JSON.stringify({ ID_Material_Log: 42, Miembro_Aspirante: "Gabriela Sofía Rivas", Materia_Articulo: "Libro: El Banquete", Monto: 18.5, Fecha_Solicitud: "2026-02-10", Estado_Pago: "Pagado", Estado_Entrega: "Entregado" }, null, 2));
+                      break;
+                    case 'otros':
+                      setValidatorInput(JSON.stringify({ ID_Transaccion: 88, Fecha: "2026-02-12", Concepto: "Aporte Taller Filosofía", Monto: 120.0, Estado: "Completado", Archivos: [] }, null, 2));
+                      break;
+                    case 'mora':
+                      setValidatorInput(JSON.stringify({ ID_Mora: 1, Miembro_Aspirante: "Carlos Eduardo Lemus", Saldo_Anterior: 0.0, Saldo_Actual: 50.0, Meses_En_Mora: 2, Detalle_Meses: "01-ENERO, 02-FEBRERO", Estado_Gestion: "Notificado" }, null, 2));
+                      break;
+                  }
+                }}
                 className="px-3 py-1.5 border border-slate-300 rounded-md bg-white font-medium focus:outline-hidden"
               >
-                <option value="miembros">Miembro (Datos Inmutables y Cuota Base)</option>
-                <option value="cuotas">CuotaMembresia (1-Registro-cuotas-membresia.csv)</option>
-                <option value="materiales">MaterialClase (2-Registro-materiales-clase.csv)</option>
-                <option value="otros">TransaccionOtro (3-registro-otros.csv)</option>
-                <option value="mora">ReporteMora (4-reporte-mora.csv)</option>
+                <optgroup label="Catálogos Relacionales">
+                  <option value="grupos">GrupoClase [id, numero, HORARIO, INSTRUCTOR]</option>
+                  <option value="horarios">HorarioClase [dia, hora inicio, hora fin]</option>
+                  <option value="instructores">Instructor [id, nombre completo, ESTATUS]</option>
+                  <option value="estatus">CatalogoEstatus (Insignias ROYGBIV/Verde/Rojo)</option>
+                </optgroup>
+                <optgroup label="Módulos Principales">
+                  <option value="miembros">Miembro (Datos Inmutables y Cuota Base)</option>
+                  <option value="cuotas">CuotaMembresia (1-Registro-cuotas-membresia.csv)</option>
+                  <option value="materiales">MaterialClase (2-Registro-materiales-clase.csv)</option>
+                  <option value="otros">TransaccionOtro (3-registro-otros.csv)</option>
+                  <option value="mora">ReporteMora (4-reporte-mora.csv)</option>
+                </optgroup>
               </select>
             </div>
 
@@ -395,10 +507,10 @@ export const ContractsView: React.FC<ContractsViewProps> = ({ data }) => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">
-                  Lote Consolidado de Sincronización Centralizada
+                  Lote Consolidado de Sincronización Centralizada (Versión 2.0.0)
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Este payload agrupa las 4 colecciones de la sede en un solo paquete JSON estructurado según el contrato <span className="font-mono">CentralDatabaseSyncPayload</span>:
+                  Este payload agrupa todos los catálogos relacionales y las 5 colecciones de la sede en un solo paquete estructurado según el contrato <span className="font-mono">CentralDatabaseSyncPayload</span>:
                 </p>
               </div>
               <button
@@ -410,7 +522,23 @@ export const ContractsView: React.FC<ContractsViewProps> = ({ data }) => {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+              <div className="p-3 bg-blue-50/60 rounded border border-blue-200">
+                <span className="text-blue-700 block font-semibold">Grupos de Clase:</span>
+                <span className="text-lg font-bold font-mono tabular-nums text-blue-950">{(data.grupos || []).length}</span>
+              </div>
+              <div className="p-3 bg-blue-50/60 rounded border border-blue-200">
+                <span className="text-blue-700 block font-semibold">Horarios:</span>
+                <span className="text-lg font-bold font-mono tabular-nums text-blue-950">{(data.horarios || []).length}</span>
+              </div>
+              <div className="p-3 bg-blue-50/60 rounded border border-blue-200">
+                <span className="text-blue-700 block font-semibold">Instructores:</span>
+                <span className="text-lg font-bold font-mono tabular-nums text-blue-950">{(data.instructores || []).length}</span>
+              </div>
+              <div className="p-3 bg-blue-50/60 rounded border border-blue-200">
+                <span className="text-blue-700 block font-semibold">Catálogo Estatus:</span>
+                <span className="text-lg font-bold font-mono tabular-nums text-blue-950">{(data.catalogoEstatus || []).length}</span>
+              </div>
               <div className="p-3 bg-slate-50 rounded border border-slate-200">
                 <span className="text-slate-500 block">Miembros:</span>
                 <span className="text-lg font-bold font-mono tabular-nums text-slate-900">{data.miembros.length}</span>

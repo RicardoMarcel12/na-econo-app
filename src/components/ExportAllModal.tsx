@@ -47,7 +47,7 @@ export const ExportAllModal: React.FC<ExportAllModalProps> = ({
 
   const handleExportJSON = () => {
     const payload = {
-      version: '1.0.0',
+      version: '2.0.0',
       sede: 'Nueva Acrópolis - San Salvador',
       fecha_exportacion: new Date().toISOString(),
       miembros: data.miembros,
@@ -55,6 +55,10 @@ export const ExportAllModal: React.FC<ExportAllModalProps> = ({
       materiales: data.materiales,
       otros: data.otros,
       mora: data.mora,
+      catalogoEstatus: data.catalogoEstatus || [],
+      horarios: data.horarios || [],
+      instructores: data.instructores || [],
+      grupos: data.grupos || []
     };
     downloadFile(JSON.stringify(payload, null, 2), 'app_economia_na_central_backup.json', 'application/json');
   };

@@ -334,14 +334,164 @@ export const ReporteMoraSchema = {
   additionalProperties: false
 };
 
+export const HorarioClaseSchema = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  title: "HorarioClase",
+  description: "Contrato JSON para el catálogo de Horarios de Clase [dia, hora inicio, hora fin] con días restringidos de Lunes a Sábado.",
+  type: "object",
+  required: [
+    "ID_Horario",
+    "Dia",
+    "Hora_Inicio",
+    "Hora_Fin"
+  ],
+  properties: {
+    ID_Horario: {
+      type: "integer",
+      minimum: 1,
+      description: "Identificador único autoincremental del horario."
+    },
+    Dia: {
+      type: "string",
+      enum: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
+      description: "Día de la semana lectivo institucional (Lunes a Sábado)."
+    },
+    Hora_Inicio: {
+      type: "string",
+      pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+      description: "Hora de inicio en formato militar 24h (HH:mm)."
+    },
+    Hora_Fin: {
+      type: "string",
+      pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+      description: "Hora de finalización en formato militar 24h (HH:mm)."
+    }
+  },
+  additionalProperties: false
+};
+
+export const InstructorSchema = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  title: "Instructor",
+  description: "Contrato JSON para el catálogo de Instructores [id, nombre completo, ESTATUS] con relación al Catálogo de Estatus.",
+  type: "object",
+  required: [
+    "ID_Instructor",
+    "Nombre_Completo",
+    "Estatus"
+  ],
+  properties: {
+    ID_Instructor: {
+      type: "integer",
+      minimum: 1,
+      description: "Identificador único autoincremental del instructor."
+    },
+    Nombre_Completo: {
+      type: "string",
+      minLength: 3,
+      maxLength: 150,
+      description: "Nombre y apellidos completos del instructor o docente."
+    },
+    Estatus: {
+      type: "string",
+      minLength: 2,
+      description: "Estatus institucional del instructor relacionado con el catálogo de estatus (ej: 01-J.F., 02-F.F.V.V.)."
+    }
+  },
+  additionalProperties: false
+};
+
+export const GrupoClaseSchema = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  title: "GrupoClase",
+  description: "Contrato JSON para el catálogo de Grupos de Clase [id, numero de grupo, HORARIO, INSTRUCTOR] vinculando llaves foráneas relacionales.",
+  type: "object",
+  required: [
+    "ID_Grupo",
+    "Numero_Grupo",
+    "ID_Horario",
+    "ID_Instructor"
+  ],
+  properties: {
+    ID_Grupo: {
+      type: "integer",
+      minimum: 1,
+      description: "Identificador único autoincremental del grupo de clase."
+    },
+    Numero_Grupo: {
+      type: "string",
+      minLength: 2,
+      maxLength: 100,
+      description: "Código o denominación del grupo (ej: 'G-01 Introducción a la Filosofía')."
+    },
+    ID_Horario: {
+      type: "integer",
+      minimum: 1,
+      description: "Llave foránea hacia el catálogo de HORARIOS (ID_Horario)."
+    },
+    ID_Instructor: {
+      type: "integer",
+      minimum: 1,
+      description: "Llave foránea hacia el catálogo de INSTRUCTORES (ID_Instructor)."
+    }
+  },
+  additionalProperties: false
+};
+
+export const CatalogoEstatusSchema = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  title: "CatalogoEstatus",
+  description: "Contrato JSON para las insignias del catálogo institucional de estatus (regla: prefijo 9 inactivo, otros activos; colores ROYGBIV y verdes escala 11+).",
+  type: "object",
+  required: [
+    "codigo",
+    "nombre",
+    "es_activo"
+  ],
+  properties: {
+    codigo: {
+      type: "string",
+      pattern: "^[0-9]{2}$",
+      description: "Código numérico de dos dígitos (ej: '01', '02', '03', '11', '98', '99')."
+    },
+    nombre: {
+      type: "string",
+      minLength: 3,
+      description: "Denominación completa del estatus (ej: '01-J.F.', '03-Miembro', '99-Retirado')."
+    },
+    es_activo: {
+      type: "boolean",
+      description: "Indica si el estatus se considera activo (los que inician con 9 son inactivos)."
+    },
+    color_familia: {
+      type: "string",
+      description: "Familia cromática asignada: Violeta (01), Índigo/Azul/Cian (02-06), Verde descendente (10-19), Rojo (90-99)."
+    }
+  },
+  additionalProperties: false
+};
+
 export const CentralDatabaseSyncPayloadSchema = {
   $schema: "http://json-schema.org/draft-07/schema#",
   title: "CentralDatabaseSyncPayload",
-  description: "Contrato consolidado para sincronización completa o lote entre la sede local y la base de datos centralizada.",
+  description: "Contrato consolidado para sincronización completa de todos los módulos y catálogos de la sede con la base de datos central.",
   type: "object",
-  required: ["version", "sede", "fecha_sincronizacion", "miembros", "cuotas", "materiales", "otros", "mora"],
+  required: [
+    "version",
+    "sede",
+    "fecha_sincronizacion",
+    "miembros",
+    "cuotas",
+    "materiales",
+    "otros",
+    "mora",
+    "catalogoEstatus",
+    "horarios",
+    "instructores",
+    "grupos"
+  ],
   properties: {
-    version: { type: "string", enum: ["1.0.0"] },
+    version: { type: "string", enum: ["1.0.0", "2.0.0"] },
     sede: { type: "string", default: "Nueva Acrópolis - San Salvador" },
     fecha_sincronizacion: { type: "string", format: "date-time" },
     miembros: {
@@ -363,6 +513,22 @@ export const CentralDatabaseSyncPayloadSchema = {
     mora: {
       type: "array",
       items: ReporteMoraSchema
+    },
+    catalogoEstatus: {
+      type: "array",
+      items: { type: "string" }
+    },
+    horarios: {
+      type: "array",
+      items: HorarioClaseSchema
+    },
+    instructores: {
+      type: "array",
+      items: InstructorSchema
+    },
+    grupos: {
+      type: "array",
+      items: GrupoClaseSchema
     }
   }
 };
@@ -373,6 +539,7 @@ export const CentralDatabaseSyncPayloadSchema = {
 export interface EndpointDoc {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   path: string;
+  modulo: string;
   summary: string;
   description: string;
   requestBodySchemaName?: string;
@@ -381,14 +548,152 @@ export interface EndpointDoc {
 }
 
 export const CENTRAL_API_ENDPOINTS: EndpointDoc[] = [
+  // Módulo 0: Catálogos Relacionales (Horarios, Instructores, Grupos, Estatus)
+  {
+    method: 'GET',
+    path: '/api/v1/catalogos/horarios',
+    modulo: 'Catálogos - Horarios',
+    summary: 'Listar catálogo de horarios de clase',
+    description: 'Devuelve todos los horarios lectivos registrados [dia, hora inicio, hora fin] restringidos a Lunes-Sábado.',
+    responseSchemaName: 'Array<HorarioClase>',
+    samplePayload: {
+      total: 6,
+      items: [
+        { ID_Horario: 1, Dia: "Martes", Hora_Inicio: "18:30", Hora_Fin: "20:30" },
+        { ID_Horario: 4, Dia: "Sábado", Hora_Inicio: "09:00", Hora_Fin: "12:00" }
+      ]
+    }
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/catalogos/horarios',
+    modulo: 'Catálogos - Horarios',
+    summary: 'Crear o registrar nuevo horario de clase',
+    description: 'Inserta un nuevo bloque lectivo en el catálogo de horarios validando día y formato 24h de horas.',
+    requestBodySchemaName: 'HorarioClaseSchema',
+    responseSchemaName: '{ success: true, ID_Horario: 7 }',
+    samplePayload: {
+      Dia: "Lunes",
+      Hora_Inicio: "19:00",
+      Hora_Fin: "21:00"
+    }
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/catalogos/instructores',
+    modulo: 'Catálogos - Instructores',
+    summary: 'Listar catálogo de instructores',
+    description: 'Retorna la lista de docentes e instructores con su estatus institucional vinculado.',
+    responseSchemaName: 'Array<Instructor>',
+    samplePayload: {
+      total: 4,
+      items: [
+        { ID_Instructor: 1, Nombre_Completo: "Prof. Roberto Valencia", Estatus: "01-J.F." },
+        { ID_Instructor: 2, Nombre_Completo: "Lic. Claudia Solórzano", Estatus: "02-F.F.V.V." }
+      ]
+    }
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/catalogos/instructores',
+    modulo: 'Catálogos - Instructores',
+    summary: 'Registrar nuevo instructor',
+    description: 'Crea un instructor con ID autoincremental y valida que su estatus pertenezca al catálogo institucional.',
+    requestBodySchemaName: 'InstructorSchema',
+    responseSchemaName: '{ success: true, ID_Instructor: 5 }',
+    samplePayload: {
+      Nombre_Completo: "Dr. Fernando Morales",
+      Estatus: "02-F.F.V.V."
+    }
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/catalogos/grupos',
+    modulo: 'Catálogos - Grupos',
+    summary: 'Listar grupos de clase con relaciones',
+    description: 'Devuelve los grupos de estudio vinculando las llaves foráneas ID_Horario e ID_Instructor.',
+    responseSchemaName: 'Array<GrupoClase>',
+    samplePayload: {
+      total: 5,
+      items: [
+        { ID_Grupo: 1, Numero_Grupo: "G-01 Introducción a la Filosofía", ID_Horario: 1, ID_Instructor: 1 },
+        { ID_Grupo: 2, Numero_Grupo: "G-02 Filosofía de Oriente y Occidente", ID_Horario: 3, ID_Instructor: 2 }
+      ]
+    }
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/catalogos/grupos',
+    modulo: 'Catálogos - Grupos',
+    summary: 'Registrar nuevo grupo de clase',
+    description: 'Inserta un nuevo grupo verificando la existencia previa de su HORARIO e INSTRUCTOR (con soporte para creación en cascada).',
+    requestBodySchemaName: 'GrupoClaseSchema',
+    responseSchemaName: '{ success: true, ID_Grupo: 6 }',
+    samplePayload: {
+      Numero_Grupo: "G-06 Historia de la Filosofía Antigua",
+      ID_Horario: 2,
+      ID_Instructor: 1
+    }
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/catalogos/estatus',
+    modulo: 'Catálogos - Estatus',
+    summary: 'Listar catálogo oficial de estatus',
+    description: 'Devuelve los estatus institucionales con cálculo de actividad (códigos que comienzan con 9 son inactivos; colores ROYGBIV).',
+    responseSchemaName: 'Array<CatalogoEstatusItem>',
+    samplePayload: {
+      estatus: [
+        { codigo: "01", nombre: "01-J.F.", es_activo: true, color: "Violeta" },
+        { codigo: "02", nombre: "02-F.F.V.V.", es_activo: true, color: "Índigo" },
+        { codigo: "03", nombre: "03-Miembro", es_activo: true, color: "Azul" },
+        { codigo: "99", nombre: "99-Retirado", es_activo: false, color: "Rojo" }
+      ]
+    }
+  },
+  // Módulo 1: Miembros
+  {
+    method: 'GET',
+    path: '/api/v1/miembros',
+    modulo: 'Miembros',
+    summary: 'Listar miembros y aspirantes',
+    description: 'Devuelve el padrón maestro de miembros con DUI, celular, correo, grupo/horario e instructores.',
+    responseSchemaName: 'Array<Miembro>',
+    samplePayload: {
+      total: 12,
+      pagina: 1,
+      limite: 50
+    }
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/miembros',
+    modulo: 'Miembros',
+    summary: 'Registrar nuevo miembro o aspirante',
+    description: 'Crea un miembro validando formato salvadoreño de DUI, correo y exención de grupo/instructores para estatus 01 y 02.',
+    requestBodySchemaName: 'MiembroSchema',
+    responseSchemaName: '{ success: true, ID_Miembro: 13 }',
+    samplePayload: {
+      Miembro_Aspirante: "Beatriz Elena Castaneda",
+      Estatus: "01-J.F.",
+      DUI: "02891234-7",
+      Celular: "7123-9845",
+      Correo: "beatriz.castaneda@email.com",
+      Grupo_Horario: "",
+      Instructores: "",
+      Cuota: 30.0
+    }
+  },
+  // Módulo 2: Cuotas de Membresía
   {
     method: 'GET',
     path: '/api/v1/cuotas',
-    summary: 'Listar cuotas de membresía',
-    description: 'Devuelve la lista paginada o filtrada de pagos de cuotas mensuales de miembros y aspirantes.',
+    modulo: 'Cuotas',
+    summary: 'Listar pagos de cuotas de membresía',
+    description: 'Devuelve los comprobantes de cuotas con meses estandarizados en formato 01-ENERO a 12-DICIEMBRE.',
     responseSchemaName: 'Array<CuotaMembresia>',
     samplePayload: {
-      filtros: { mes: 'Febrero', grupo: 'Filosofía Clásica' },
+      filtros: { mes: '10-OCTUBRE', grupo: 'G-01 Introducción a la Filosofía' },
       limite: 50,
       pagina: 1
     }
@@ -396,25 +701,42 @@ export const CENTRAL_API_ENDPOINTS: EndpointDoc[] = [
   {
     method: 'POST',
     path: '/api/v1/cuotas',
-    summary: 'Registrar pago de cuota',
-    description: 'Inserta un nuevo pago de cuota validando el formato del DUI salvadoreño y monto positivo.',
+    modulo: 'Cuotas',
+    summary: 'Registrar pago de cuota mensual',
+    description: 'Registra un pago de cuota con cálculo automático del mes a abonar (más antiguo si hay mora o siguiente si está solvente).',
     requestBodySchemaName: 'CuotaMembresiaSchema',
-    responseSchemaName: '{ success: true, ID_Registro: 104, timestamp: string }',
+    responseSchemaName: '{ success: true, ID_Registro: 101, timestamp: string }',
     samplePayload: {
-      ID_Registro: 104,
+      ID_Registro: 101,
       Miembro_Aspirante: "Alejandro Mendoza Ortiz",
       DUI: "03456789-2",
-      Grupo_Horario: "Introducción a la Filosofía - Mar/Jue 6:30 PM",
-      Mes_Pagado: "Febrero",
+      Grupo_Horario: "G-01 Introducción a la Filosofía — Martes 18:30 a 20:30",
+      Mes_Pagado: "10-OCTUBRE",
       Monto_Cuota: 25.0,
-      Fecha_Pago: "2026-02-14",
+      Fecha_Pago: "2026-10-28",
       Metodo_Pago: "Págala",
-      Referencia: "PAG-2026-8841"
+      Referencia: "PAG-1001-2026"
+    }
+  },
+  // Módulo 3: Materiales y Libros de Clase
+  {
+    method: 'GET',
+    path: '/api/v1/materiales',
+    modulo: 'Materiales',
+    summary: 'Listar registros de materiales y libros',
+    description: 'Retorna el catálogo de libros, manuales y materiales solicitados con estados de pago y entrega.',
+    responseSchemaName: 'Array<MaterialClase>',
+    samplePayload: {
+      total: 24,
+      items: [
+        { ID_Material_Log: 1, Miembro_Aspirante: "Gabriela Sofía Rivas", Materia_Articulo: "Libro: El Banquete", Monto: 18.5, Estado_Pago: "Pagado", Estado_Entrega: "Entregado" }
+      ]
     }
   },
   {
     method: 'POST',
     path: '/api/v1/materiales',
+    modulo: 'Materiales',
     summary: 'Registrar solicitud de material / libro',
     description: 'Crea un registro de pedido de libro, uniforme o material de estudio para un miembro.',
     requestBodySchemaName: 'MaterialClaseSchema',
@@ -429,11 +751,27 @@ export const CENTRAL_API_ENDPOINTS: EndpointDoc[] = [
       Estado_Entrega: "Entregado"
     }
   },
+  // Módulo 4: Otros (Transacciones Misceláneas con Archivos)
+  {
+    method: 'GET',
+    path: '/api/v1/otros',
+    modulo: 'Otros',
+    summary: 'Listar transacciones misceláneas y adjuntos',
+    description: 'Retorna bitácora de ingresos/egresos extraordinarios con lista de archivos subidos.',
+    responseSchemaName: 'Array<TransaccionOtro>',
+    samplePayload: {
+      total: 18,
+      items: [
+        { ID_Transaccion: 1, Fecha: "2026-02-12", Concepto: "Taller Filosofía", Monto: 120.0, Estado: "Completado", Archivos: [] }
+      ]
+    }
+  },
   {
     method: 'POST',
     path: '/api/v1/otros',
-    summary: 'Registrar transacción miscelánea',
-    description: 'Registra un ingreso o gasto no tipificado en cuotas (conferencias, talleres o mantenimiento de sede).',
+    modulo: 'Otros',
+    summary: 'Registrar transacción miscelánea con archivos adjuntos',
+    description: 'Registra un ingreso o gasto con soporte para adjuntar uno o más archivos codificados (recibos, facturas).',
     requestBodySchemaName: 'TransaccionOtroSchema',
     responseSchemaName: '{ success: true, ID_Transaccion: 88 }',
     samplePayload: {
@@ -443,44 +781,45 @@ export const CENTRAL_API_ENDPOINTS: EndpointDoc[] = [
       Monto: 120.0,
       Contacto: "Prof. Roberto Valencia",
       Estado: "Completado",
-      Accion_Pendiente: "Emitir constancia de participación"
+      Accion_Pendiente: "Emitir constancia de participación",
+      Archivos: [
+        { id: "f-1", nombre: "recibo_donacion.pdf", tamano: 245000, tipo: "application/pdf", fechaSubida: "2026-02-12" }
+      ]
+    }
+  },
+  // Módulo 5: Mora
+  {
+    method: 'GET',
+    path: '/api/v1/mora',
+    modulo: 'Mora',
+    summary: 'Consultar cartera de miembros en mora',
+    description: 'Obtiene el tablero de miembros con cuotas atrasadas, saldo actual y detalle de meses pendientes.',
+    responseSchemaName: 'Array<ReporteMora>',
+    samplePayload: {
+      total: 12,
+      cartera_pendiente: 325.0
     }
   },
   {
     method: 'POST',
     path: '/api/v1/mora/reconciliar',
+    modulo: 'Mora',
     summary: 'Reconciliar estado de mora con nuevo pago',
     description: 'Amortiza o actualiza el saldo de un estudiante en mora al registrar un pago en cuotas.',
     requestBodySchemaName: '{ Miembro_Aspirante: string, Mes_Amortizado: string, Monto_Abonado: number }',
     responseSchemaName: '{ ID_Mora: number, Nuevo_Saldo: number, Estado_Actualizado: string }',
     samplePayload: {
       Miembro_Aspirante: "Carlos Eduardo Lemus",
-      Mes_Amortizado: "Enero",
+      Mes_Amortizado: "01-ENERO",
       Monto_Abonado: 25.0
-    }
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/sync/central-database',
-    summary: 'Sincronización masiva con Base de Datos Central',
-    description: 'Envía un lote consolidado de los 4 registros para sincronizar o respaldar en la base de datos central.',
-    requestBodySchemaName: 'CentralDatabaseSyncPayloadSchema',
-    responseSchemaName: '{ status: "synced", registros_procesados: 156, hash: "a8f3b9c..." }',
-    samplePayload: {
-      version: "1.0.0",
-      sede: "Nueva Acrópolis - San Salvador",
-      fecha_sincronizacion: "2026-02-24T18:30:00Z",
-      cuotas_count: 50,
-      materiales_count: 24,
-      otros_count: 18,
-      mora_count: 12
     }
   },
   {
     method: 'GET',
     path: '/api/v1/mora/stats',
+    modulo: 'Mora',
     summary: 'Cálculo en tiempo real de categorías de mora',
-    description: 'Calcula en tiempo real desde el backend la distribución analítica de los miembros en tres categorías: Solventes, Mora Pequeña (< 3 meses) y 3 Meses o Más.',
+    description: 'Calcula en tiempo real desde el backend la distribución analítica de miembros en: Solventes, Mora Pequeña (<3 meses) y 3 Meses o Más.',
     responseSchemaName: '{ solventes: MoraCategoryStats, mora_pequena: MoraCategoryStats, mora_3_mas: MoraCategoryStats, total_miembros: number }',
     samplePayload: {
       total_miembros: 48,
@@ -489,25 +828,108 @@ export const CENTRAL_API_ENDPOINTS: EndpointDoc[] = [
       mora_pequena: { count: 8, porcentaje: 17, total_deuda: 110.0 },
       mora_3_mas: { count: 4, porcentaje: 8, total_deuda: 115.0 }
     }
+  },
+  // Sincronización Central Lote
+  {
+    method: 'POST',
+    path: '/api/v1/sync/central-database',
+    modulo: 'Sincronización Central',
+    summary: 'Sincronización masiva con Base de Datos Central',
+    description: 'Envía un lote consolidado de todos los módulos y catálogos de la sede para respaldar en la base de datos central.',
+    requestBodySchemaName: 'CentralDatabaseSyncPayloadSchema',
+    responseSchemaName: '{ status: "synced", registros_procesados: 165, hash: "a8f3b9c..." }',
+    samplePayload: {
+      version: "2.0.0",
+      sede: "Nueva Acrópolis - San Salvador",
+      fecha_sincronizacion: "2026-11-06T18:30:00Z",
+      miembros_count: 12,
+      cuotas_count: 100,
+      materiales_count: 24,
+      otros_count: 18,
+      mora_count: 12,
+      horarios_count: 6,
+      instructores_count: 4,
+      grupos_count: 5,
+      catalogoEstatus_count: 8
+    }
   }
 ];
 
+export type SchemaValidationType =
+  | 'miembros'
+  | 'cuotas'
+  | 'materiales'
+  | 'otros'
+  | 'mora'
+  | 'horarios'
+  | 'instructores'
+  | 'grupos'
+  | 'estatus';
+
 /**
- * In-browser Schema Validator for Contract verification
+ * In-browser Schema Validator for Contract verification across all modules & catalogs
  */
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
 }
 
-export function validateEntityPayload(schemaType: 'miembros' | 'cuotas' | 'materiales' | 'otros' | 'mora', item: any): ValidationResult {
+export function validateEntityPayload(schemaType: SchemaValidationType, item: any): ValidationResult {
   const errors: string[] = [];
 
   if (!item || typeof item !== 'object') {
     return { valid: false, errors: ['El objeto de datos es nulo o no es un objeto válido.'] };
   }
 
-  if (schemaType === 'miembros') {
+  if (schemaType === 'horarios') {
+    if (typeof item.ID_Horario !== 'number' || item.ID_Horario < 1) {
+      errors.push('ID_Horario debe ser un número entero mayor o igual a 1.');
+    }
+    const diasValidos = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    if (!item.Dia || !diasValidos.includes(item.Dia)) {
+      errors.push(`Dia inválido ("${item.Dia}"). Debe ser uno de: ${diasValidos.join(', ')}.`);
+    }
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!item.Hora_Inicio || !timeRegex.test(item.Hora_Inicio)) {
+      errors.push('Hora_Inicio debe tener formato válido de 24 horas (HH:mm).');
+    }
+    if (!item.Hora_Fin || !timeRegex.test(item.Hora_Fin)) {
+      errors.push('Hora_Fin debe tener formato válido de 24 horas (HH:mm).');
+    }
+  } else if (schemaType === 'instructores') {
+    if (typeof item.ID_Instructor !== 'number' || item.ID_Instructor < 1) {
+      errors.push('ID_Instructor debe ser un número entero mayor o igual a 1.');
+    }
+    if (!item.Nombre_Completo || typeof item.Nombre_Completo !== 'string' || item.Nombre_Completo.trim().length < 3) {
+      errors.push('Nombre_Completo es requerido y debe tener al menos 3 caracteres.');
+    }
+    if (!item.Estatus || typeof item.Estatus !== 'string' || item.Estatus.trim().length < 2) {
+      errors.push('Estatus es requerido y debe corresponder a un código institucional del catálogo.');
+    }
+  } else if (schemaType === 'grupos') {
+    if (typeof item.ID_Grupo !== 'number' || item.ID_Grupo < 1) {
+      errors.push('ID_Grupo debe ser un número entero mayor o igual a 1.');
+    }
+    if (!item.Numero_Grupo || typeof item.Numero_Grupo !== 'string' || item.Numero_Grupo.trim().length < 2) {
+      errors.push('Numero_Grupo es requerido (ej: "G-01 Introducción a la Filosofía").');
+    }
+    if (typeof item.ID_Horario !== 'number' || item.ID_Horario < 1) {
+      errors.push('ID_Horario debe ser un entero válido (relación con HORARIOS).');
+    }
+    if (typeof item.ID_Instructor !== 'number' || item.ID_Instructor < 1) {
+      errors.push('ID_Instructor debe ser un entero válido (relación con INSTRUCTORES).');
+    }
+  } else if (schemaType === 'estatus') {
+    const raw = typeof item === 'string' ? { nombre: item } : item;
+    const name = raw.nombre || raw.Estatus || '';
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      errors.push('El nombre del estatus es requerido (ej. "01-J.F.", "03-Miembro").');
+    }
+    const codeMatch = name.trim().match(/^([0-9]{2})/);
+    if (!codeMatch) {
+      errors.push('El estatus institucional debe comenzar con un código de dos cifras (ej: 01-, 02-, 03-, 98-, 99-).');
+    }
+  } else if (schemaType === 'miembros') {
     if (typeof item.ID_Miembro !== 'number' || item.ID_Miembro < 1) {
       errors.push('ID_Miembro debe ser un número entero mayor o igual a 1.');
     }
@@ -614,7 +1036,7 @@ export function validateEntityPayload(schemaType: 'miembros' | 'cuotas' | 'mater
     if (typeof item.Meses_En_Mora !== 'number' || item.Meses_En_Mora < 1) {
       errors.push('Meses_En_Mora debe ser un número entero mayor o igual a 1.');
     }
-    if (!item.Detalle_Meses) errors.push('Detalle_Meses es requerido (ej: "Enero, Febrero").');
+    if (!item.Detalle_Meses) errors.push('Detalle_Meses es requerido (ej: "01-ENERO, 02-FEBRERO").');
     if (!['Notificado', 'En Negociación', 'Sin Respuesta'].includes(item.Estado_Gestion)) {
       errors.push('Estado_Gestion debe ser "Notificado", "En Negociación" o "Sin Respuesta".');
     }

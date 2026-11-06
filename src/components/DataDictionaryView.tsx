@@ -6,16 +6,80 @@ export const DataDictionaryView: React.FC = () => {
 
   const datasets = [
     {
+      id: 'cat-grupos',
+      file: 'catalogo-grupos-clase.json',
+      title: 'Catálogo de Grupos de Clase',
+      description: 'Registro de grupos lectivos institucionales con sus relaciones a Horarios e Instructores.',
+      fields: [
+        { name: 'ID_Grupo', type: 'Integer', req: 'Y', desc: 'Identificador único del grupo.', rules: 'Llave primaria (Autoincremental).' },
+        { name: 'Numero_Grupo', type: 'String', req: 'Y', desc: 'Nombre o código del grupo lectivo.', rules: "Ej: 'G-01 Introducción a la Filosofía'." },
+        { name: 'ID_Horario', type: 'Integer', req: 'Y', desc: 'Identificador del horario de clase asignado.', rules: 'Llave foránea -> HORARIOS (ID_Horario).' },
+        { name: 'ID_Instructor', type: 'Integer', req: 'Y', desc: 'Identificador del instructor asignado.', rules: 'Llave foránea -> INSTRUCTORES (ID_Instructor).' }
+      ]
+    },
+    {
+      id: 'cat-horarios',
+      file: 'catalogo-horarios-clase.json',
+      title: 'Catálogo de Horarios de Clase',
+      description: 'Bloques lectivos de estudio [dia, hora inicio, hora fin] restringidos a días de Lunes a Sábado.',
+      fields: [
+        { name: 'ID_Horario', type: 'Integer', req: 'Y', desc: 'Identificador único del horario.', rules: 'Llave primaria (Autoincremental).' },
+        { name: 'Dia', type: 'String', req: 'Y', desc: 'Día de la semana lectivo.', rules: 'Restringido a: Lunes, Martes, Miércoles, Jueves, Viernes, Sábado.' },
+        { name: 'Hora_Inicio', type: 'String', req: 'Y', desc: 'Hora de inicio de la clase.', rules: 'Formato militar 24h: HH:mm (ej: 18:30).' },
+        { name: 'Hora_Fin', type: 'String', req: 'Y', desc: 'Hora de finalización de la clase.', rules: 'Formato militar 24h: HH:mm (ej: 20:30).' }
+      ]
+    },
+    {
+      id: 'cat-instructores',
+      file: 'catalogo-instructores.json',
+      title: 'Catálogo de Instructores',
+      description: 'Directorio de docentes e instructores [id, nombre completo, ESTATUS].',
+      fields: [
+        { name: 'ID_Instructor', type: 'Integer', req: 'Y', desc: 'Identificador único del instructor.', rules: 'Llave primaria (Autoincremental).' },
+        { name: 'Nombre_Completo', type: 'String', req: 'Y', desc: 'Nombre y apellidos completos.', rules: 'Mínimo 3 caracteres.' },
+        { name: 'Estatus', type: 'String', req: 'Y', desc: 'Estatus institucional del instructor.', rules: 'Relación con Catálogo de Estatus (ej: 01-J.F., 02-F.F.V.V., 03-Miembro).' }
+      ]
+    },
+    {
+      id: 'cat-estatus',
+      file: 'catalogo-estatus.json',
+      title: 'Catálogo Oficial de Estatus Institucional',
+      description: 'Insignias oficiales. Regla: prefijo 9 inactivo, otros activos. Colores ROYGBIV (01 Violeta) y escala verde (11+).',
+      fields: [
+        { name: 'codigo', type: 'String', req: 'Y', desc: 'Código numérico del estatus.', rules: 'Dos dígitos (01, 02, 03, 11, 98, 99).' },
+        { name: 'nombre', type: 'String', req: 'Y', desc: 'Nombre completo del estatus.', rules: 'Texto con código y nombre (ej: 01-J.F., 99-Retirado).' },
+        { name: 'es_activo', type: 'Boolean', req: 'Y', desc: 'Indica si es miembro activo.', rules: 'Falso si inicia con 9 (inactivo); Verdadero en los demás.' },
+        { name: 'color_familia', type: 'String', req: 'N', desc: 'Familia cromática de insignia.', rules: 'Violeta (01), Índigo/Azul (02-06), Verde (10-19), Rojo (90-99).' }
+      ]
+    },
+    {
+      id: '0',
+      file: 'registro-miembros.csv',
+      title: 'Registro Maestro de Miembros y Aspirantes',
+      description: 'Padrón unificado de miembros, aspirantes y exenciones de grupo/instructores para estatus 01 y 02.',
+      fields: [
+        { name: 'ID_Miembro', type: 'Integer', req: 'Y', desc: 'Identificador único del miembro.', rules: 'Llave primaria.' },
+        { name: 'Miembro_Aspirante', type: 'String', req: 'Y', desc: 'Nombre completo del estudiante o miembro.', rules: 'Mínimo 3 caracteres.' },
+        { name: 'Estatus', type: 'String', req: 'Y', desc: 'Estatus institucional asignado.', rules: 'Pertenecer al catálogo oficial de estatus.' },
+        { name: 'DUI', type: 'String', req: 'Y', desc: 'Documento Único de Identidad salvadoreño.', rules: 'Formato estándar 00000000-0.' },
+        { name: 'Celular', type: 'String', req: 'Y', desc: 'Teléfono de contacto o WhatsApp.', rules: 'Mínimo 8 caracteres.' },
+        { name: 'Correo', type: 'String', req: 'Y', desc: 'Correo electrónico de contacto.', rules: 'Debe contener formato de email válido.' },
+        { name: 'Grupo_Horario', type: 'String', req: 'Condicional', desc: 'Grupo y horario de clase.', rules: 'Lista de Grupos; vacío para estatus 01 y 02.' },
+        { name: 'Instructores', type: 'String', req: 'Condicional', desc: 'Instructor o docentes asignados.', rules: 'Lista de Instructores; vacío para estatus 01 y 02.' },
+        { name: 'Cuota', type: 'Decimal', req: 'Y', desc: 'Monto mensual de cuota base ($ USD).', rules: 'Mayor a 0.00.' }
+      ]
+    },
+    {
       id: '1',
       file: '1-Registro-cuotas-membresia.csv',
       title: 'Registro de Cuotas de Membresía',
-      description: 'Registro principal del pago de cuotas mensuales de los miembros o aspirantes de la Escuela de Filosofía.',
+      description: 'Registro principal del pago de cuotas mensuales con formato de mes estándar 01-ENERO a 12-DICIEMBRE.',
       fields: [
         { name: 'ID_Registro', type: 'Integer', req: 'Y', desc: 'Identificador único del pago.', rules: 'Llave primaria (Autoincremental).' },
         { name: 'Miembro_Aspirante', type: 'String', req: 'Y', desc: 'Nombre completo del estudiante.', rules: 'Sin caracteres especiales.' },
         { name: 'DUI', type: 'String', req: 'N', desc: 'Documento Único de Identidad.', rules: 'Formato estándar de El Salvador (00000000-0).' },
-        { name: 'Grupo_Horario', type: 'String', req: 'Y', desc: 'Grupo asignado al miembro.', rules: 'Valores de lista predefinida.' },
-        { name: 'Mes_Pagado', type: 'String', req: 'Y', desc: 'Mes que cubre la cuota.', rules: "Formato: '01-ENERO', '02-FEBRERO', etc." },
+        { name: 'Grupo_Horario', type: 'String', req: 'Y', desc: 'Grupo asignado al miembro.', rules: 'Valores de lista predefinida de grupos.' },
+        { name: 'Mes_Pagado', type: 'String', req: 'Y', desc: 'Mes que cubre la cuota.', rules: "Formato: '01-ENERO', '02-FEBRERO' ... '12-DICIEMBRE'." },
         { name: 'Monto_Cuota', type: 'Decimal', req: 'Y', desc: 'Cantidad abonada en la transacción.', rules: 'Mayor a 0.00.' },
         { name: 'Fecha_Pago', type: 'Date', req: 'Y', desc: 'Fecha en que se realizó el abono.', rules: 'Formato: YYYY-MM-DD.' },
         { name: 'Metodo_Pago', type: 'String', req: 'Y', desc: 'Plataforma o método de pago.', rules: "Ej: 'Págala', 'Transferencia', 'Efectivo'." },
@@ -41,7 +105,7 @@ export const DataDictionaryView: React.FC = () => {
       id: '3',
       file: '3-registro-otros.csv',
       title: 'Bitácora de Otras Transacciones',
-      description: 'Bitácora de transacciones misceláneas, conferencias extraordinarias, donaciones o gastos no tipificados en mensualidades y materiales.',
+      description: 'Bitácora de transacciones misceláneas, talleres, conferencias, donaciones y archivos adjuntos.',
       fields: [
         { name: 'ID_Transaccion', type: 'Integer', req: 'Y', desc: 'Identificador de la transacción.', rules: 'Llave primaria.' },
         { name: 'Fecha', type: 'Date', req: 'Y', desc: 'Fecha del evento o transacción.', rules: 'Formato: YYYY-MM-DD.' },
@@ -49,7 +113,8 @@ export const DataDictionaryView: React.FC = () => {
         { name: 'Monto', type: 'Decimal', req: 'Y', desc: 'Cantidad monetaria asociada.', rules: 'Permite valores positivos y negativos.' },
         { name: 'Contacto', type: 'String', req: 'N', desc: 'Persona responsable o involucrada.', rules: 'Referencia del tercero.' },
         { name: 'Estado', type: 'String', req: 'Y', desc: 'Estatus de la transacción.', rules: "Valores: 'Completado', 'Pendiente', 'Anulado'." },
-        { name: 'Accion_Pendiente', type: 'String', req: 'N', desc: 'Siguiente paso a realizar.', rules: "Texto libre (Ej. 'Enviar recibo')." }
+        { name: 'Accion_Pendiente', type: 'String', req: 'N', desc: 'Siguiente paso a realizar.', rules: "Texto libre (Ej. 'Enviar recibo')." },
+        { name: 'Archivos', type: 'Array<File>', req: 'N', desc: 'Uno o más archivos adjuntos subidos.', rules: 'Objetos con id, nombre, tamano, tipo y dataUrl.' }
       ]
     },
     {
@@ -63,7 +128,7 @@ export const DataDictionaryView: React.FC = () => {
         { name: 'Saldo_Anterior', type: 'Decimal', req: 'Y', desc: 'Deuda acumulada de periodos previos.', rules: 'Por defecto 0.00.' },
         { name: 'Saldo_Actual', type: 'Decimal', req: 'Y', desc: 'Deuda total al momento del corte.', rules: 'Calculado automáticamente.' },
         { name: 'Meses_En_Mora', type: 'Integer', req: 'Y', desc: 'Cantidad de meses sin pago.', rules: 'Entero mayor a 0.' },
-        { name: 'Detalle_Meses', type: 'String', req: 'Y', desc: 'Meses específicos adeudados.', rules: "Ej: 'Enero, Febrero'." },
+        { name: 'Detalle_Meses', type: 'String', req: 'Y', desc: 'Meses específicos adeudados.', rules: "Formato: '01-ENERO, 02-FEBRERO'." },
         { name: 'Ultimo_Contacto', type: 'Date', req: 'N', desc: 'Fecha de última gestión de cobro.', rules: 'Formato: YYYY-MM-DD.' },
         { name: 'Estado_Gestion', type: 'String', req: 'Y', desc: 'Estatus del cobro.', rules: "Valores: 'Notificado', 'En Negociación', 'Sin Respuesta'." }
       ]
