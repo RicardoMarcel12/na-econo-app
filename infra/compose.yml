@@ -1,0 +1,16 @@
+services:
+  pg-server:
+    image: docker.io/library/postgres:16
+    container_name: pg-server
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: iceberg2slew7ollie-approval
+      POSTGRES_DB: EconoNA
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+volumes:
+  pgdata:
